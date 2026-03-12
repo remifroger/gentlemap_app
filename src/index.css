@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", serif;
+  --font-sans: "Inter", sans-serif;
+  --color-bg: #F9F7F2; /* Warm Ivory */
+  --color-ink: #121212; /* Deep Charcoal */
+  --color-accent: #5A5A5A; /* Muted Gray */
+  --color-premium: #0047AB; /* Elegant Blue */
+  --color-border: rgba(18, 18, 18, 0.08);
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-ink font-sans antialiased h-screen overflow-hidden;
+    letter-spacing: -0.01em;
+  }
+  
+  h1, h2, h3, h4 {
+    @apply font-serif font-light tracking-tight;
+  }
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #F2EFE9 !important;
+}
+
+@keyframes markerFadeIn {
+  from { opacity: 0; transform: scale(0.5) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.custom-div-icon {
+  animation: markerFadeIn 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* Custom Marker Styling */
+.custom-marker-container {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.custom-marker-container:hover {
+  transform: scale(1.1) translateY(-4px);
+  z-index: 1000 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(184, 134, 11, 0.2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(184, 134, 11, 0.5);
+}
+
+.editorial-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.5rem;
+}
+
+.thin-border {
+  border: 0.5px solid var(--color-border);
+}
+
+.text-micro {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Gentlemap",
+  "description": "Une carte pour les esthètes répertoriant tailleurs, cafés historiques, antiquaires et autres lieux d'exception.",
+  "requestFramePermissions": ["geolocation"]
+}

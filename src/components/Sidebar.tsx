@@ -91,18 +91,24 @@ const Sidebar: React.FC<SidebarProps> = ({ categories, selectedCategoryId, onSel
         </nav>
       </div>
       
-      <div className="mt-auto p-10 flex flex-col gap-6">
+      <div className="mt-auto p-10 flex flex-col gap-4">
         <button 
           onClick={() => window.location.hash = '#about'}
           className="text-[10px] uppercase tracking-widest font-bold text-accent hover:text-ink transition-colors text-left"
         >
           À propos
         </button>
+        <a 
+          href="mailto:contact@gentlemap.com"
+          className="text-[10px] uppercase tracking-widest font-bold text-accent hover:text-ink transition-colors text-left"
+        >
+          Contact
+        </a>
         <div className="pt-6 border-t border-border flex items-center justify-between">
-          <span className="text-[9px] uppercase tracking-widest text-accent/40">© 2024 Gentlemap</span>
           <div className="flex gap-4">
-            <LucideIcons.Instagram className="w-3.5 h-3.5 text-accent/40 hover:text-ink cursor-pointer transition-colors" />
-            <LucideIcons.Mail className="w-3.5 h-3.5 text-accent/40 hover:text-ink cursor-pointer transition-colors" />
+            <a href="mailto:contact@gentlemap.com">
+              <LucideIcons.Mail className="w-3.5 h-3.5 text-accent/40 hover:text-ink cursor-pointer transition-colors" />
+            </a>
           </div>
         </div>
       </div>

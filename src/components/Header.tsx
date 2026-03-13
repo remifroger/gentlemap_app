@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, MapPin, Menu } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Plus, MapPin, Menu, X, ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface HeaderProps {
   searchQuery: string;
@@ -15,6 +16,21 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [placeSuggestions, setPlaceSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     setInputValue(searchQuery);
@@ -52,7 +68,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
   }, [inputValue]);
 
   return (
-    <header className="flex items-center justify-between px-4 md:px-12 py-4 md:py-6 bg-bg border-b border-border z-[100]">
+    <header className="relative flex items-center justify-between px-4 md:px-12 py-4 md:py-6 bg-bg border-b border-border z-[100]">
       <div className="flex items-center gap-2 md:gap-6 group cursor-pointer">
         <button 
           className="md:hidden p-2 -ml-2 text-ink"
@@ -67,12 +83,16 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
         </div>
       </div>
       
-      <div className="hidden md:flex flex-1 max-w-md mx-12 relative">
-        <div className="relative w-full group">
+      {/* Desktop Search */}
+      <div 
+        ref={searchRef}
+        className="hidden md:flex flex-1 max-w-md mx-12 relative"
+      >
+        <div className="relative w-full group flex items-center">
           <input
             type="text"
             placeholder="Rechercher un artisan, un style ou une adresse..."
-            className="w-full pl-0 pr-6 py-2 bg-transparent border-b border-border text-sm font-light italic focus:outline-none focus:border-ink transition-all placeholder:text-accent/40"
+            className="w-full pl-0 pr-10 py-2 bg-transparent border-b border-border text-sm font-light italic focus:outline-none focus:border-ink transition-all placeholder:text-accent/40"
             value={inputValue}
             onChange={(e) => {
               setInputValue(e.target.value);
@@ -141,11 +161,125 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
           )}
         </div>
       </div>
+
+      {/* Mobile Search Modal */}
+      <AnimatePresence>
+        {isMobileSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed inset-0 bg-bg z-[200] flex flex-col md:hidden"
+          >
+            <div className="flex items-center gap-4 px-4 py-4 border-b border-border">
+              <button 
+                onClick={() => setIsMobileSearchOpen(false)}
+                className="p-2 -ml-2 text-ink"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  autoFocus
+                  className="w-full py-2 bg-transparent text-sm font-light italic focus:outline-none placeholder:text-accent/40"
+                  value={inputValue}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    setSearchQuery(e.target.value);
+                  }}
+                />
+                {inputValue && (
+                  <button 
+                    onClick={() => {
+                      setInputValue('');
+                      setSearchQuery('');
+                    }}
+                    className="absolute right-0 top-2 p-1 text-accent/40"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto bg-stone-50/30">
+              {(addressSuggestions.length > 0 || placeSuggestions.length > 0) ? (
+                <div className="flex flex-col">
+                  {placeSuggestions.length > 0 && (
+                    <>
+                      <div className="px-6 py-4 bg-white border-b border-border">
+                        <span className="text-[10px] uppercase tracking-widest font-bold text-premium">Artisans & Lieux</span>
+                      </div>
+                      {placeSuggestions.map((place) => (
+                        <button
+                          key={`mobile-place-${place.id}`}
+                          className="w-full px-6 py-5 text-left bg-white hover:bg-stone-50 flex items-center gap-4 border-b border-border transition-colors"
+                          onClick={() => {
+                            onPlaceSelect?.(place);
+                            setInputValue(place.name);
+                            setSearchQuery(''); 
+                            setIsMobileSearchOpen(false);
+                          }}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-premium/5 flex items-center justify-center">
+                            <Search className="w-4 h-4 text-premium" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium text-ink">{place.name}</span>
+                            <span className="text-[10px] text-accent uppercase tracking-tighter">{place.address}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {addressSuggestions.length > 0 && (
+                    <>
+                      <div className="px-6 py-4 bg-white border-b border-border mt-4">
+                        <span className="text-[10px] uppercase tracking-widest font-bold text-accent">Adresses</span>
+                      </div>
+                      {addressSuggestions.map((feat, i) => (
+                        <button
+                          key={`mobile-addr-${i}`}
+                          className="w-full px-6 py-5 text-left bg-white hover:bg-stone-50 flex items-center gap-4 border-b border-border transition-colors"
+                          onClick={() => {
+                            const [lng, lat] = feat.geometry.coordinates;
+                            onAddressSelect?.(lat, lng);
+                            setInputValue(feat.properties.label);
+                            setSearchQuery(''); 
+                            setIsMobileSearchOpen(false);
+                          }}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-accent/5 flex items-center justify-center">
+                            <MapPin className="w-4 h-4 text-accent" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium text-ink">{feat.properties.label}</span>
+                            <span className="text-[10px] text-accent uppercase tracking-tighter">{feat.properties.context}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              ) : (
+                inputValue.length >= 2 && (
+                  <div className="p-12 text-center">
+                    <p className="text-xs text-accent italic">Aucun résultat trouvé pour "{inputValue}"</p>
+                  </div>
+                )
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <div className="flex items-center gap-2">
         <button 
           className="md:hidden p-2 text-ink"
-          onClick={() => setShowSuggestions(!showSuggestions)}
+          onClick={() => setIsMobileSearchOpen(true)}
         >
           <Search className="w-5 h-5" />
         </button>

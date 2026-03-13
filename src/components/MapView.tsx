@@ -325,7 +325,7 @@ const MapView: React.FC<MapViewProps> = ({
             }
           }
         }}
-        className="absolute bottom-4 left-4 z-10 p-4 bg-white border border-border shadow-xl hover:bg-stone-50 transition-all rounded-full"
+        className="absolute bottom-24 md:bottom-4 left-4 z-10 p-4 bg-white border border-border shadow-xl hover:bg-stone-50 transition-all rounded-full"
         title="Ma position"
       >
         <LucideIcons.Navigation className="w-4 h-4 text-ink" />

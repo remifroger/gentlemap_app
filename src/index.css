@@ -36,11 +36,17 @@
 /* Custom Zoom Controls */
 .custom-zoom-controls {
   position: absolute;
-  bottom: 1.5rem;
+  bottom: 6rem; /* Higher on mobile by default */
   right: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .custom-zoom-controls {
+    bottom: 1.5rem;
+  }
 }
 
 .custom-zoom-controls button {

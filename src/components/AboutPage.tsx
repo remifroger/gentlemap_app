@@ -85,9 +85,6 @@ const AboutPage: React.FC<AboutPageProps> = ({ onBack }) => {
           <div className="flex flex-col items-center md:items-start">
             <span className="text-4xl font-serif italic text-ink mb-2">Gentlemap</span>
           </div>
-          <div className="text-xs uppercase tracking-widest text-accent/40">
-            © 2024 Gentlemap — Tous droits réservés
-          </div>
         </footer>
       </div>
     </motion.div>

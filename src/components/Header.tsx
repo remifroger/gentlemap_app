@@ -52,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
   }, [inputValue]);
 
   return (
-    <header className="flex items-center justify-between px-4 md:px-12 py-4 md:py-6 bg-bg border-b border-border z-50">
+    <header className="flex items-center justify-between px-4 md:px-12 py-4 md:py-6 bg-bg border-b border-border z-[100]">
       <div className="flex items-center gap-2 md:gap-6 group cursor-pointer">
         <button 
           className="md:hidden p-2 -ml-2 text-ink"
@@ -84,7 +84,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
           <Search className="absolute right-0 top-2 w-4 h-4 text-accent/40 group-focus-within:text-ink transition-colors" />
           
           {showSuggestions && (addressSuggestions.length > 0 || placeSuggestions.length > 0) && (
-            <div className="absolute top-full left-0 w-full bg-white border border-border shadow-2xl mt-1 z-[60] overflow-hidden rounded-lg">
+            <div className="absolute top-full left-0 w-full bg-white border border-border shadow-2xl mt-1 z-[110] overflow-hidden rounded-lg">
               {placeSuggestions.length > 0 && (
                 <>
                   <div className="px-4 py-2 bg-stone-50 border-b border-border">

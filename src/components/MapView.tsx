@@ -1,6 +1,17 @@
-import React, { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import React, { useEffect, useRef, useState } from 'react';
+import 'ol/ol.css';
+import Map from 'ol/Map';
+import View from 'ol/View';
+import TileLayer from 'ol/layer/Tile';
+import XYZ from 'ol/source/XYZ';
+import { fromLonLat } from 'ol/proj';
+import Feature from 'ol/Feature';
+import Point from 'ol/geom/Point';
+import VectorSource from 'ol/source/Vector';
+import VectorLayer from 'ol/layer/Vector';
+import { Style, Icon as OlIcon, Circle as OlCircle, Fill, Stroke } from 'ol/style';
+import Overlay from 'ol/Overlay';
+import { Zoom } from 'ol/control';
 import * as LucideIcons from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Place, Category } from '../types';
@@ -32,123 +43,189 @@ const MapView: React.FC<MapViewProps> = ({
   setRatingFilter,
   mapCenter
 }) => {
-  const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
-  const searchMarkerRef = useRef<L.Marker | null>(null);
-  const userLocationRef = useRef<{ marker: L.Marker, circle: L.Circle } | null>(null);
+  const mapElement = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<Map | null>(null);
+  const vectorSourceRef = useRef<VectorSource>(new VectorSource());
+  const overlaysRef = useRef<Overlay[]>([]);
+  const userLocationOverlayRef = useRef<Overlay | null>(null);
+  const searchMarkerOverlayRef = useRef<Overlay | null>(null);
 
-  const createCustomIcon = (category: Category | undefined, place: Place) => {
-    const color = category?.color || '#5A5A5A';
-    const iconName = category?.icon || 'map-pin';
-    const Icon = (LucideIcons as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())] || LucideIcons.MapPin;
-    
-    const isFeatured = !!place.is_featured;
-    
-    const html = renderToStaticMarkup(
-      <div className={`custom-marker-container ${isFeatured ? 'featured-marker' : ''}`} style={{
-        backgroundColor: isFeatured ? '#0047AB' : 'white',
-        padding: isFeatured ? '0 8px' : '0',
-        width: isFeatured ? 'max-content' : '32px',
-        height: isFeatured ? '32px' : '32px',
-        borderRadius: isFeatured ? '4px' : '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: isFeatured ? '6px' : '0',
-        color: isFeatured ? 'white' : 'black',
-        boxShadow: isFeatured ? '0 4px 12px rgba(0, 71, 171, 0.3)' : '0 4px 12px rgba(0,0,0,0.1)',
-        border: isFeatured ? '1.5px solid white' : '1px solid black',
-        position: 'relative',
-        whiteSpace: 'nowrap',
-        transform: isFeatured ? 'translateX(-50%) translateY(-100%)' : 'none'
-      }}>
-        <Icon size={isFeatured ? 14 : 16} strokeWidth={2} />
-        {isFeatured && (
-          <span className="text-[9px] uppercase tracking-wider font-bold pr-1">
-            {place.name}
-          </span>
-        )}
-      </div>
-    );
-
-    return L.divIcon({
-      html,
-      className: 'custom-div-icon',
-      iconSize: [0, 0],
-      iconAnchor: [0, 0]
-    });
-  };
-
+  // Initialize Map
   useEffect(() => {
-    if (!mapRef.current) {
-      mapRef.current = L.map('map', { zoomControl: false }).setView([48.8566, 2.3522], 13);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; CARTO'
-      }).addTo(mapRef.current);
-      L.control.zoom({ position: 'bottomright' }).addTo(mapRef.current);
-    }
+    if (!mapElement.current) return;
+
+    const map = new Map({
+      target: mapElement.current,
+      layers: [
+        new TileLayer({
+          source: new XYZ({
+            url: 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            attributions: '&copy; CARTO'
+          })
+        })
+      ],
+      view: new View({
+        center: fromLonLat([2.3522, 48.8566]),
+        zoom: 13
+      }),
+      controls: [
+        new Zoom({
+          className: 'custom-zoom-controls'
+        })
+      ]
+    });
+
+    mapRef.current = map;
+
+    const vectorLayer = new VectorLayer({
+      source: vectorSourceRef.current
+    });
+    map.addLayer(vectorLayer);
+
+    map.on('click', (event) => {
+      map.forEachFeatureAtPixel(event.pixel, (feature) => {
+        const place = feature.get('place');
+        if (place) {
+          onPlaceClick(place);
+          return true;
+        }
+      });
+    });
+
+    // Force resize check
+    setTimeout(() => {
+      map.updateSize();
+    }, 100);
 
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      map.setTarget(undefined);
     };
   }, []);
 
+  // Handle Places and Markers
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(m => m.remove());
-    markersRef.current = [];
+    // Clear existing overlays and features
+    overlaysRef.current.forEach(overlay => mapRef.current?.removeOverlay(overlay));
+    overlaysRef.current = [];
+    vectorSourceRef.current.clear();
 
-    // Add new markers
     places.forEach(place => {
+      const lat = Number(place.lat);
+      const lng = Number(place.lng);
+      if (isNaN(lat) || isNaN(lng)) return;
+
+      const coords = fromLonLat([lng, lat]);
       const category = categories.find(c => c.id === place.category_id);
-      const marker = L.marker([place.lat, place.lng], {
-        icon: createCustomIcon(category, place),
-        zIndexOffset: place.is_featured ? 1000 : 0
-      }).addTo(mapRef.current!);
+      const iconName = category?.icon || 'map-pin';
+      const Icon = (LucideIcons as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())] || LucideIcons.MapPin;
       
-      marker.on('click', () => onPlaceClick(place));
-      markersRef.current.push(marker);
+      if (place.is_featured) {
+        const container = document.createElement('div');
+        container.className = 'custom-marker-wrapper';
+        
+        container.innerHTML = renderToStaticMarkup(
+          <div className="featured-marker flex items-center gap-2 bg-premium text-white px-3 py-1.5 rounded-md border-2 border-white shadow-lg whitespace-nowrap cursor-pointer">
+            <Icon size={14} strokeWidth={2} />
+            <span className="text-[9px] uppercase tracking-wider font-bold">
+              {place.name}
+            </span>
+          </div>
+        );
+
+        container.onclick = (e) => {
+          e.stopPropagation();
+          onPlaceClick(place);
+        };
+
+        const overlay = new Overlay({
+          position: coords,
+          element: container,
+          stopEvent: true,
+          positioning: 'bottom-center'
+        });
+
+        mapRef.current?.addOverlay(overlay);
+        overlaysRef.current.push(overlay);
+      } else {
+        const color = category?.color || '#5A5A5A';
+        const container = document.createElement('div');
+        container.className = 'custom-marker-wrapper';
+        
+        container.innerHTML = renderToStaticMarkup(
+          <div className="w-8 h-8 bg-white border border-black rounded-full flex items-center justify-center shadow-md cursor-pointer hover:scale-110 transition-transform">
+             <Icon size={14} strokeWidth={2} style={{ color }} />
+          </div>
+        );
+
+        container.onclick = (e) => {
+          e.stopPropagation();
+          onPlaceClick(place);
+        };
+
+        const overlay = new Overlay({
+          position: coords,
+          element: container,
+          stopEvent: true,
+          positioning: 'center-center'
+        });
+
+        mapRef.current?.addOverlay(overlay);
+        overlaysRef.current.push(overlay);
+      }
     });
 
     if (places.length > 0) {
-      const group = L.featureGroup(markersRef.current);
-      mapRef.current.fitBounds(group.getBounds().pad(0.2));
+      const lats = places.map(p => Number(p.lat));
+      const lngs = places.map(p => Number(p.lng));
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      
+      const min = fromLonLat([minLng, minLat]);
+      const max = fromLonLat([maxLng, maxLat]);
+      
+      mapRef.current.getView().fit([min[0], min[1], max[0], max[1]], {
+        padding: [100, 100, 100, 100],
+        duration: 1000
+      });
     }
   }, [places, onPlaceClick, categories]);
 
+  // Handle Map Center (Search)
   useEffect(() => {
     if (mapRef.current && mapCenter) {
-      // Remove previous search marker
-      if (searchMarkerRef.current) {
-        searchMarkerRef.current.remove();
+      const coords = fromLonLat([mapCenter[1], mapCenter[0]]);
+
+      if (searchMarkerOverlayRef.current) {
+        mapRef.current.removeOverlay(searchMarkerOverlayRef.current);
       }
 
-      // Add discrete search marker
-      const searchIcon = L.divIcon({
-        html: renderToStaticMarkup(
-          <div className="w-4 h-4 bg-premium border-2 border-white rounded-full shadow-lg" />
-        ),
-        className: '',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
+      const container = document.createElement('div');
+      container.innerHTML = renderToStaticMarkup(
+        <div className="w-4 h-4 bg-premium border-2 border-white rounded-full shadow-lg" />
+      );
+
+      const overlay = new Overlay({
+        position: coords,
+        element: container,
+        positioning: 'center-center'
       });
 
-      searchMarkerRef.current = L.marker(mapCenter, { 
-        icon: searchIcon,
-        zIndexOffset: 2000 // Higher than featured markers (1000)
-      }).addTo(mapRef.current);
+      mapRef.current.addOverlay(overlay);
+      searchMarkerOverlayRef.current = overlay;
 
-      mapRef.current.flyTo(mapCenter, 16, {
-        duration: 1.5
+      mapRef.current.getView().animate({
+        center: coords,
+        zoom: 16,
+        duration: 1500
       });
     }
   }, [mapCenter]);
 
+  // Handle Geolocation
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -157,42 +234,31 @@ const MapView: React.FC<MapViewProps> = ({
     if ("geolocation" in navigator) {
       watchId = navigator.geolocation.watchPosition(
         (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          const latlng = L.latLng(latitude, longitude);
+          const { latitude, longitude } = position.coords;
+          const coords = fromLonLat([longitude, latitude]);
 
-          if (!userLocationRef.current) {
-            const marker = L.marker(latlng, {
-              icon: L.divIcon({
-                html: renderToStaticMarkup(
-                  <div className="relative flex items-center justify-center">
-                    <div className="absolute w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md z-10" />
-                    <div className="absolute w-8 h-8 bg-blue-500/30 rounded-full animate-ping" />
-                  </div>
-                ),
-                className: '',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
-              })
-            }).addTo(mapRef.current!);
+          if (!userLocationOverlayRef.current) {
+            const container = document.createElement('div');
+            container.innerHTML = renderToStaticMarkup(
+              <div className="relative flex items-center justify-center">
+                <div className="absolute w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md z-10" />
+                <div className="absolute w-8 h-8 bg-blue-500/30 rounded-full animate-ping" />
+              </div>
+            );
 
-            const circle = L.circle(latlng, {
-              radius: accuracy,
-              color: '#3b82f6',
-              fillColor: '#3b82f6',
-              fillOpacity: 0.1,
-              weight: 1
-            }).addTo(mapRef.current!);
+            const overlay = new Overlay({
+              position: coords,
+              element: container,
+              positioning: 'center-center'
+            });
 
-            userLocationRef.current = { marker, circle };
+            mapRef.current?.addOverlay(overlay);
+            userLocationOverlayRef.current = overlay;
           } else {
-            userLocationRef.current.marker.setLatLng(latlng);
-            userLocationRef.current.circle.setLatLng(latlng);
-            userLocationRef.current.circle.setRadius(accuracy);
+            userLocationOverlayRef.current.setPosition(coords);
           }
         },
-        (error) => {
-          console.error("Geolocation error:", error);
-        },
+        (error) => console.error(error),
         { enableHighAccuracy: true }
       );
     }
@@ -206,7 +272,7 @@ const MapView: React.FC<MapViewProps> = ({
 
   return (
     <div className="w-full h-full relative">
-      <div id="map" className="w-full h-full z-0"></div>
+      <div ref={mapElement} className="w-full h-full bg-[#F2EFE9]"></div>
       
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10 flex gap-0 bg-white shadow-2xl border border-border overflow-hidden rounded-full">
         {subcategories.length > 0 && (
@@ -248,8 +314,15 @@ const MapView: React.FC<MapViewProps> = ({
 
       <button
         onClick={() => {
-          if (userLocationRef.current && mapRef.current) {
-            mapRef.current.flyTo(userLocationRef.current.marker.getLatLng(), 15);
+          if (userLocationOverlayRef.current && mapRef.current) {
+            const pos = userLocationOverlayRef.current.getPosition();
+            if (pos) {
+              mapRef.current.getView().animate({
+                center: pos,
+                zoom: 15,
+                duration: 1000
+              });
+            }
           }
         }}
         className="absolute bottom-4 left-4 z-10 p-4 bg-white border border-border shadow-xl hover:bg-stone-50 transition-all rounded-full"
@@ -262,3 +335,4 @@ const MapView: React.FC<MapViewProps> = ({
 };
 
 export default MapView;
+

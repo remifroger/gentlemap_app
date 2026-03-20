@@ -1,6 +1,7 @@
 import express from "express";
 import { Pool } from "pg";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 
@@ -89,8 +90,29 @@ async function startServer() {
           place_ids INTEGER[] NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS blog_posts (
+          id SERIAL PRIMARY KEY,
+          slug VARCHAR(255) UNIQUE NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          excerpt TEXT,
+          content TEXT,
+          date VARCHAR(50),
+          author VARCHAR(100),
+          category VARCHAR(50),
+          image TEXT,
+          notebook_id VARCHAR(255)
+      );
     `);
     console.log('✅ Database schema verified');
+
+    // Run initial data migration
+    const migrationPath = path.join(__dirname, "migration.sql");
+    if (fs.existsSync(migrationPath)) {
+      const migrationSql = fs.readFileSync(migrationPath, "utf8");
+      await pool.query(migrationSql);
+      console.log('✅ Initial data migration completed');
+    }
   } catch (err) {
     console.error('Migration error:', err);
   }
@@ -237,6 +259,16 @@ async function startServer() {
       res.json(result.rows);
     } catch (error) {
       console.error("Error fetching notebooks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/blog", async (req, res) => {
+    try {
+      const result = await pool.query("SELECT * FROM blog_posts ORDER BY id DESC");
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching blog posts:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

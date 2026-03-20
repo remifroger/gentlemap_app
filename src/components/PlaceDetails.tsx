@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, MapPin, Euro, Instagram, Globe, Copy } from 'lucide-react';
 import { Place, Review } from '../types';
 
@@ -13,6 +13,7 @@ const PlaceDetails: React.FC<PlaceDetailsProps> = ({ place, onClose }) => {
   const [userName, setUserName] = useState('');
   const [rating, setRating] = useState(8);
   const [comment, setComment] = useState('');
+  const [showThanks, setShowThanks] = useState(false);
 
   const fetchReviews = async () => {
     const res = await fetch(`/api/places/${place.id}/reviews`);
@@ -22,6 +23,7 @@ const PlaceDetails: React.FC<PlaceDetailsProps> = ({ place, onClose }) => {
 
   useEffect(() => {
     fetchReviews();
+    setShowThanks(false);
   }, [place.id]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -34,7 +36,9 @@ const PlaceDetails: React.FC<PlaceDetailsProps> = ({ place, onClose }) => {
     if (res.ok) {
       setUserName('');
       setComment('');
+      setShowThanks(true);
       fetchReviews();
+      setTimeout(() => setShowThanks(false), 5000);
     }
   };
 
@@ -182,43 +186,73 @@ const PlaceDetails: React.FC<PlaceDetailsProps> = ({ place, onClose }) => {
 
           <section className="bg-bg p-12 border border-border rounded-xl">
             <h4 className={`text-micro mb-8 ${place.is_featured ? 'text-premium' : 'text-ink'}`}>Contribuer au Répertoire</h4>
-            <form onSubmit={handleSubmitReview} className="space-y-8">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-micro opacity-60">Signature</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-transparent border-b border-ink/20 py-2 text-sm focus:outline-none focus:border-premium transition-all"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-micro opacity-60">Note</label>
-                  <input 
-                    type="number" 
-                    min="1" max="10"
-                    className="w-full bg-transparent border-b border-ink/20 py-2 text-sm focus:outline-none focus:border-premium transition-all"
-                    value={rating}
-                    onChange={(e) => setRating(parseInt(e.target.value))}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <label className="text-micro opacity-60">Commentaire</label>
-                <textarea 
-                  rows={2}
-                  className="w-full bg-transparent border-b border-ink/20 py-2 text-sm focus:outline-none focus:border-premium transition-all resize-none"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                />
-              </div>
-              <button type="submit" className="w-full py-4 border border-ink text-ink text-micro hover:bg-premium hover:text-white hover:border-premium transition-all rounded-full">
-                Publier la chronique
-              </button>
-            </form>
+            
+            <AnimatePresence mode="wait">
+              {showThanks ? (
+                <motion.div
+                  key="thanks"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="py-12 text-center"
+                >
+                  <Star className="w-8 h-8 text-premium mx-auto mb-6" />
+                  <h5 className="font-serif italic text-2xl mb-4">Merci pour votre contribution</h5>
+                  <p className="text-sm text-accent font-light">Votre chronique a été publiée avec succès.</p>
+                  <button 
+                    onClick={() => setShowThanks(false)}
+                    className="mt-8 text-[9px] uppercase tracking-widest font-bold text-ink hover:text-premium transition-colors"
+                  >
+                    Écrire un autre avis
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.form 
+                  key="form"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onSubmit={handleSubmitReview} 
+                  className="space-y-8"
+                >
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-micro opacity-60">Signature</label>
+                      <input 
+                        type="text" 
+                        className="w-full bg-transparent border-b border-ink/20 py-2 text-sm focus:outline-none focus:border-premium transition-all"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-micro opacity-60">Note</label>
+                      <input 
+                        type="number" 
+                        min="1" max="10"
+                        className="w-full bg-transparent border-b border-ink/20 py-2 text-sm focus:outline-none focus:border-premium transition-all"
+                        value={rating}
+                        onChange={(e) => setRating(parseInt(e.target.value))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-micro opacity-60">Commentaire</label>
+                    <textarea 
+                      rows={2}
+                      className="w-full bg-transparent border-b border-ink/20 py-2 text-sm focus:outline-none focus:border-premium transition-all resize-none"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                    />
+                  </div>
+                  <button type="submit" className="w-full py-4 border border-ink text-ink text-micro hover:bg-premium hover:text-white hover:border-premium transition-all rounded-full">
+                    Publier la chronique
+                  </button>
+                </motion.form>
+              )}
+            </AnimatePresence>
           </section>
         </div>
       </div>

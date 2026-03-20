@@ -174,7 +174,7 @@ const MapView: React.FC<MapViewProps> = ({
         const overlay = new Overlay({
           position: coords,
           element: container,
-          stopEvent: true,
+          stopEvent: false,
           positioning: 'bottom-center'
         });
 
@@ -199,7 +199,7 @@ const MapView: React.FC<MapViewProps> = ({
         const overlay = new Overlay({
           position: coords,
           element: container,
-          stopEvent: true,
+          stopEvent: false,
           positioning: 'center-center'
         });
 

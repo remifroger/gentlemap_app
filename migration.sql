@@ -107,7 +107,14 @@ INSERT INTO places (id, name, description, category_id, subcategory_id, address,
 (15, 'Berluti', 'L''art de la patine et du soulier d''exception.', 'souliers', 'souliers_sur', '31 Rue Marbeuf, 75008 Paris', 48.8695, 2.3035, 4, 'pointu', 'Paris', 'approved', 1),
 (16, 'John Lobb', 'Le bottier de référence, élégance intemporelle.', 'souliers', 'souliers_sur', '21 Rue Boissy d''Anglas, 75008 Paris', 48.8690, 2.3220, 4, 'pointu', 'Paris', 'approved', 1),
 (17, 'J.M. Weston', 'L''icône du soulier français, célèbre pour son mocassin 180.', 'souliers', 'souliers_pap', '114 Av. des Champs-Élysées, 75008 Paris', 48.8720, 2.3010, 3, 'debutant', 'Paris', 'approved', 1),
-(18, 'Aubercy', 'Maison familiale proposant des souliers d''une finesse rare.', 'souliers', 'souliers_sur', '34 Rue Vivienne, 75002 Paris', 48.8700, 2.3400, 4, 'confirme', 'Paris', 'approved', 1)
+(18, 'Aubercy', 'Maison familiale proposant des souliers d''une finesse rare.', 'souliers', 'souliers_sur', '34 Rue Vivienne, 75002 Paris', 48.8700, 2.3400, 4, 'confirme', 'Paris', 'approved', 1),
+-- Nouvelles adresses
+(19, 'Café Cirio', 'Un café historique de Bruxelles à l''ambiance Belle Époque, resté dans son jus depuis 1886.', 'cafes', NULL, 'Rue de la Bourse 18, 1000 Bruxelles, Belgique', 50.8484, 4.3501, 2, 'debutant', 'Bruxelles', 'approved', 0),
+(20, 'Cyrano', 'Ancien café-concert au décor Art Nouveau magnifique, idéal pour un verre dans une ambiance historique.', 'cafes', NULL, '3 Rue Biot, 75017 Paris', 48.8836, 2.3274, 2, 'confirme', 'Paris', 'approved', 0),
+(21, 'Antiquaire Delalande', 'Spécialiste mondial des objets de marine, d''astronomie et de globes terrestres anciens.', 'antiquaires', NULL, '35 Rue de Lille, 75007 Paris', 48.8582, 2.3292, 4, 'pointu', 'Paris', 'approved', 0),
+(22, 'Restaurant Polidor', 'Créé en 1845, ce restaurant a vu passer Verlaine, Rimbaud et Hemingway. Cuisine bourgeoise traditionnelle.', 'restaurants', NULL, '41 Rue Monsieur le Prince, 75006 Paris', 48.8497, 2.3396, 2, 'debutant', 'Paris', 'approved', 0),
+(23, 'Simon''s', 'Une adresse confidentielle pour dénicher de superbes vestes et costumes d''occasion de belle facture.', 'costumes_occasion', NULL, '10 Boulevard Arago, 75013 Paris', 48.8352, 2.3482, 2, 'confirme', 'Paris', 'approved', 0),
+(24, 'Stéphane', 'Boutique élégante proposant une sélection avec une véritable touche anglaise au cœur des Batignolles.', 'tailleur', 'tailleur_pap', '65 Place du Docteur Félix Lobligeois, 75017 Paris', 48.8872, 2.3182, 3, 'confirme', 'Paris', 'approved', 0)
 ON CONFLICT (id) DO UPDATE SET 
     name = EXCLUDED.name,
     description = EXCLUDED.description,

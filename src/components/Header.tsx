@@ -9,9 +9,20 @@ interface HeaderProps {
   onAddressSelect?: (lat: number, lng: number) => void;
   onPlaceSelect?: (place: any) => void;
   onMenuClick?: () => void;
+  onLogoClick?: () => void;
+  isDiscreet?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeClick, onAddressSelect, onPlaceSelect, onMenuClick }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  searchQuery, 
+  setSearchQuery, 
+  onProposeClick, 
+  onAddressSelect, 
+  onPlaceSelect, 
+  onMenuClick, 
+  onLogoClick,
+  isDiscreet = false
+}) => {
   const [inputValue, setInputValue] = useState(searchQuery);
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [placeSuggestions, setPlaceSuggestions] = useState<any[]>([]);
@@ -68,7 +79,11 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
   }, [inputValue]);
 
   return (
-    <header className="relative flex items-center justify-between px-4 md:px-12 py-4 md:py-6 bg-bg border-b border-border z-[100]">
+    <header className={`relative flex items-center justify-between z-[100] transition-all duration-500 ${
+      isDiscreet 
+        ? 'px-4 md:px-8 py-2 md:py-3 bg-bg/80 backdrop-blur-md border-b border-border/50' 
+        : 'px-4 md:px-12 py-4 md:py-6 bg-bg border-b border-border'
+    }`}>
       <div className="flex items-center gap-2 md:gap-6 group cursor-pointer">
         <button 
           className="md:hidden p-2 -ml-2 text-ink"
@@ -76,8 +91,10 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex flex-col" onClick={() => window.location.reload()}>
-          <div className="font-serif text-2xl md:text-5xl font-medium tracking-tight text-ink leading-none">
+        <div className="flex flex-col" onClick={onLogoClick}>
+          <div className={`font-serif font-medium tracking-tight text-ink leading-none transition-all duration-500 ${
+            isDiscreet ? 'text-xl md:text-3xl' : 'text-2xl md:text-5xl'
+          }`}>
             Gentle<span className="italic font-light">map</span>
           </div>
         </div>
@@ -86,13 +103,17 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
       {/* Desktop Search */}
       <div 
         ref={searchRef}
-        className="hidden md:flex flex-1 max-w-md mx-12 relative"
+        className={`hidden md:flex flex-1 mx-12 relative transition-all duration-500 ${
+          isDiscreet ? 'max-w-xs' : 'max-w-md'
+        }`}
       >
         <div className="relative w-full group flex items-center">
           <input
             type="text"
-            placeholder="Rechercher un artisan, un style ou une adresse..."
-            className="w-full pl-0 pr-10 py-2 bg-transparent border-b border-border text-sm font-light italic focus:outline-none focus:border-ink transition-all placeholder:text-accent/40"
+            placeholder="Rechercher..."
+            className={`w-full pl-0 pr-10 bg-transparent border-b border-border text-sm font-light italic focus:outline-none focus:border-ink transition-all placeholder:text-accent/40 ${
+              isDiscreet ? 'py-1' : 'py-2'
+            }`}
             value={inputValue}
             onChange={(e) => {
               setInputValue(e.target.value);
@@ -101,7 +122,7 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
             }}
             onFocus={() => setShowSuggestions(true)}
           />
-          <Search className="absolute right-0 top-2 w-4 h-4 text-accent/40 group-focus-within:text-ink transition-colors" />
+          <Search className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-accent/40 group-focus-within:text-ink transition-colors" />
           
           {showSuggestions && (addressSuggestions.length > 0 || placeSuggestions.length > 0) && (
             <div className="absolute top-full left-0 w-full bg-white border border-border shadow-2xl mt-1 z-[110] overflow-hidden rounded-lg">
@@ -143,8 +164,11 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
                       onClick={() => {
                         const [lng, lat] = feat.geometry.coordinates;
                         onAddressSelect?.(lat, lng);
-                        setInputValue(feat.properties.label);
-                        setSearchQuery(''); 
+                        const label = feat.properties.label;
+                        const city = feat.properties.city || '';
+                        setInputValue(label);
+                        // Filter by city if available, otherwise by label
+                        setSearchQuery(city || label); 
                         setShowSuggestions(false);
                       }}
                     >
@@ -247,8 +271,11 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onProposeC
                           onClick={() => {
                             const [lng, lat] = feat.geometry.coordinates;
                             onAddressSelect?.(lat, lng);
-                            setInputValue(feat.properties.label);
-                            setSearchQuery(''); 
+                            const label = feat.properties.label;
+                            const city = feat.properties.city || '';
+                            setInputValue(label);
+                            // Filter by city if available, otherwise by label
+                            setSearchQuery(city || label); 
                             setIsMobileSearchOpen(false);
                           }}
                         >

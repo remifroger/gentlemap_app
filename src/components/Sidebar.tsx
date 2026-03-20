@@ -98,6 +98,12 @@ const Sidebar: React.FC<SidebarProps> = ({ categories, selectedCategoryId, onSel
         >
           À propos
         </button>
+        <button 
+          onClick={() => window.location.hash = '#blog'}
+          className="text-[10px] uppercase tracking-widest font-bold text-accent hover:text-ink transition-colors text-left"
+        >
+          Blog
+        </button>
         <a 
           href="mailto:contact@gentlemap.com"
           className="text-[10px] uppercase tracking-widest font-bold text-accent hover:text-ink transition-colors text-left"

@@ -14,15 +14,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ onBack }) => {
       exit={{ opacity: 0, y: 20 }}
       className="fixed inset-0 z-50 bg-bg overflow-y-auto"
     >
-      <div className="max-w-4xl mx-auto px-6 py-12 md:py-24">
-        <button 
-          onClick={onBack}
-          className="group flex items-center gap-2 text-accent hover:text-ink transition-colors mb-12"
-        >
-          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          <span className="text-sm uppercase tracking-widest font-bold text-[10px]">Retour à la carte</span>
-        </button>
-
+      <div className="max-w-4xl mx-auto px-6 pt-32 pb-12 md:pb-24">
         <header className="mb-20">
           <h1 className="text-6xl md:text-8xl font-serif italic text-ink mb-8 leading-tight">
             À propos

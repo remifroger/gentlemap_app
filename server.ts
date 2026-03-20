@@ -20,9 +20,7 @@ const poolConfig = process.env.DATABASE_URL
 
 const pool = new Pool({
   ...poolConfig,
-  ssl: process.env.DB_SSL === "true" || process.env.NODE_ENV === "production" 
-    ? { rejectUnauthorized: false } 
-    : false
+  ssl: { rejectUnauthorized: false }
 });
 
 // Set search_path if a schema is specified
@@ -40,12 +38,71 @@ pool.query('SELECT NOW()')
   .catch(err => console.error('❌ PostgreSQL connection error:', err.message));
 
 async function startServer() {
+  // Migration: Ensure all tables exist
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS categories (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          parent_id TEXT,
+          icon TEXT,
+          color TEXT,
+          CONSTRAINT fk_parent FOREIGN KEY (parent_id) REFERENCES categories(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS places (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          category_id TEXT NOT NULL,
+          subcategory_id TEXT,
+          address TEXT,
+          lat DOUBLE PRECISION NOT NULL,
+          lng DOUBLE PRECISION NOT NULL,
+          price_range INTEGER,
+          level TEXT DEFAULT 'debutant',
+          website TEXT,
+          instagram TEXT,
+          gentlemap_review TEXT,
+          status TEXT DEFAULT 'approved',
+          is_featured INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          city VARCHAR(255),
+          CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES categories(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS reviews (
+          id SERIAL PRIMARY KEY,
+          place_id INTEGER NOT NULL,
+          rating INTEGER NOT NULL,
+          comment TEXT,
+          user_name TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT fk_place FOREIGN KEY (place_id) REFERENCES places(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS notebooks (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          image_url TEXT,
+          place_ids INTEGER[] NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Database schema verified');
+  } catch (err) {
+    console.error('Migration error:', err);
+  }
+
   const app = express();
   app.use(express.json());
 
   // API Routes
   app.get("/api/places", async (req, res) => {
-    const { category, subcategory, minRating, maxPrice, q } = req.query;
+    const { category, subcategory, minRating, maxPrice, q, city, level, ids } = req.query;
+    console.log("GET /api/places - Query params:", { category, subcategory, minRating, maxPrice, q, city, level, ids });
+    
     let query = `
       SELECT p.*, 
              AVG(r.rating)::float as avg_rating,
@@ -57,41 +114,99 @@ async function startServer() {
     const params: any[] = [];
     let paramIndex = 1;
 
+    if (ids) {
+      const idList = String(ids).split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+      if (idList.length > 0) {
+        query += ` AND p.id = ANY($${paramIndex++})`;
+        params.push(idList);
+      }
+    }
+
     if (category && !q) {
-      query += ` AND p.category_id = $${paramIndex++}`;
-      params.push(category);
+      const categories = String(category).split(',');
+      if (categories.length > 1) {
+        query += ` AND p.category_id = ANY($${paramIndex++})`;
+        params.push(categories);
+      } else {
+        query += ` AND p.category_id = $${paramIndex++}`;
+        params.push(categories[0]);
+      }
     }
     if (subcategory && !q) {
       query += ` AND p.subcategory_id = $${paramIndex++}`;
       params.push(subcategory);
     }
-    if (maxPrice) {
-      query += ` AND p.price_range <= $${paramIndex++}`;
-      params.push(maxPrice);
+    if (maxPrice && maxPrice !== 'all') {
+      const priceValue = parseInt(maxPrice as string, 10);
+      if (!isNaN(priceValue)) {
+        // Use <= for maxPrice to show places up to that price level
+        query += ` AND p.price_range <= $${paramIndex++}`;
+        params.push(priceValue);
+      }
+    }
+    if (city) {
+      query += ` AND LOWER(p.city) = LOWER($${paramIndex++})`;
+      params.push(city);
+    }
+    if (level) {
+      query += ` AND p.level = $${paramIndex++}`;
+      params.push(level);
     }
     if (q) {
-      query += ` AND (LOWER(p.name) LIKE $${paramIndex} OR LOWER(p.description) LIKE $${paramIndex} OR LOWER(p.address) LIKE $${paramIndex})`;
+      query += ` AND (LOWER(p.name) LIKE $${paramIndex} OR LOWER(p.description) LIKE $${paramIndex} OR LOWER(p.address) LIKE $${paramIndex} OR LOWER(p.city) LIKE $${paramIndex})`;
       params.push(`%${String(q).toLowerCase()}%`);
       paramIndex++;
     }
 
     query += ` GROUP BY p.id`;
 
-    if (minRating) {
-      query += ` HAVING AVG(r.rating) >= $${paramIndex++}`;
-      params.push(minRating);
+    if (minRating && minRating !== 'all') {
+      const ratingValue = parseFloat(minRating as string);
+      if (!isNaN(ratingValue)) {
+        query += ` HAVING AVG(r.rating) >= $${paramIndex++}`;
+        params.push(ratingValue);
+      }
     }
+
+    query += ` ORDER BY p.is_featured DESC`;
 
     if (req.query.limit) {
       query += ` LIMIT $${paramIndex++}`;
       params.push(parseInt(req.query.limit as string));
     }
 
+    console.log("Executing query:", query, "with params:", params);
+
     try {
       const result = await pool.query(query, params);
+      console.log(`Found ${result.rows.length} places`);
       res.json(result.rows);
     } catch (error) {
       console.error("Error fetching places:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/places/ids", async (req, res) => {
+    const { ids } = req.query;
+    if (!ids) return res.json([]);
+    
+    const idList = String(ids).split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+    if (idList.length === 0) return res.json([]);
+
+    try {
+      const result = await pool.query(`
+        SELECT p.*, 
+               AVG(r.rating)::float as avg_rating,
+               COUNT(r.id) as review_count
+        FROM places p
+        LEFT JOIN reviews r ON p.id = r.place_id
+        WHERE p.id = ANY($1)
+        GROUP BY p.id
+      `, [idList]);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching places by ids:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -102,6 +217,39 @@ async function startServer() {
       res.json(result.rows);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/cities", async (req, res) => {
+    try {
+      const result = await pool.query("SELECT DISTINCT city FROM places WHERE city IS NOT NULL AND city != '' ORDER BY city ASC");
+      res.json(result.rows.map(r => r.city));
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/notebooks", async (req, res) => {
+    try {
+      const result = await pool.query("SELECT * FROM notebooks ORDER BY created_at DESC");
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching notebooks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/notebooks/:id", async (req, res) => {
+    try {
+      const result = await pool.query("SELECT * FROM notebooks WHERE id = $1", [req.params.id]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Notebook not found" });
+      }
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error fetching notebook:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -131,13 +279,13 @@ async function startServer() {
   });
 
   app.post("/api/places", async (req, res) => {
-    const { name, description, category_id, subcategory_id, address, lat, lng, price_range, website, instagram, is_featured } = req.body;
+    const { name, description, category_id, subcategory_id, address, lat, lng, price_range, level, website, instagram, is_featured } = req.body;
     try {
       const result = await pool.query(`
-        INSERT INTO places (name, description, category_id, subcategory_id, address, lat, lng, price_range, website, instagram, status, is_featured)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11)
+        INSERT INTO places (name, description, category_id, subcategory_id, address, lat, lng, price_range, level, website, instagram, status, is_featured)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', $12)
         RETURNING id
-      `, [name, description, category_id, subcategory_id, address, lat, lng, price_range, website, instagram, is_featured ? 1 : 0]);
+      `, [name, description, category_id, subcategory_id, address, lat, lng, price_range, level || 'debutant', website, instagram, is_featured ? 1 : 0]);
       res.json({ id: result.rows[0].id, status: 'pending' });
     } catch (error) {
       console.error("Error creating place:", error);

@@ -12,9 +12,10 @@ import VectorLayer from 'ol/layer/Vector';
 import { Style, Icon as OlIcon, Circle as OlCircle, Fill, Stroke } from 'ol/style';
 import Overlay from 'ol/Overlay';
 import { Zoom } from 'ol/control';
+import LineString from 'ol/geom/LineString';
 import * as LucideIcons from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Place, Category } from '../types';
+import { Place, Category, Notebook } from '../types';
 
 interface MapViewProps {
   places: Place[];
@@ -28,6 +29,10 @@ interface MapViewProps {
   ratingFilter: string;
   setRatingFilter: (r: string) => void;
   mapCenter: [number, number] | null;
+  selectedNotebook: Notebook | null;
+  selectedPlace: Place | null;
+  onCloseNotebook: () => void;
+  onOpenNotebookModal: () => void;
 }
 
 const MapView: React.FC<MapViewProps> = ({ 
@@ -41,7 +46,11 @@ const MapView: React.FC<MapViewProps> = ({
   setPriceFilter,
   ratingFilter,
   setRatingFilter,
-  mapCenter
+  mapCenter,
+  selectedNotebook,
+  selectedPlace,
+  onCloseNotebook,
+  onOpenNotebookModal
 }) => {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
@@ -49,6 +58,11 @@ const MapView: React.FC<MapViewProps> = ({
   const overlaysRef = useRef<Overlay[]>([]);
   const userLocationOverlayRef = useRef<Overlay | null>(null);
   const searchMarkerOverlayRef = useRef<Overlay | null>(null);
+  const lastCategoryRef = useRef<string | null>(null);
+  const lastSubcategoryRef = useRef<string | null>(null);
+  const isFirstRender = useRef(true);
+
+  const [isNotebookExpanded, setIsNotebookExpanded] = useState(false);
 
   // Initialize Map
   useEffect(() => {
@@ -111,7 +125,16 @@ const MapView: React.FC<MapViewProps> = ({
     overlaysRef.current = [];
     vectorSourceRef.current.clear();
 
-    places.forEach(place => {
+    // Sort places so featured ones are rendered last (on top)
+    const sortedPlaces = [...places].sort((a, b) => {
+      const aFeatured = a.is_featured || selectedNotebook?.place_ids.includes(a.id);
+      const bFeatured = b.is_featured || selectedNotebook?.place_ids.includes(b.id);
+      if (aFeatured && !bFeatured) return 1;
+      if (!aFeatured && bFeatured) return -1;
+      return 0;
+    });
+
+    sortedPlaces.forEach(place => {
       const lat = Number(place.lat);
       const lng = Number(place.lng);
       if (isNaN(lat) || isNaN(lng)) return;
@@ -121,12 +144,21 @@ const MapView: React.FC<MapViewProps> = ({
       const iconName = category?.icon || 'map-pin';
       const Icon = (LucideIcons as any)[iconName.charAt(0).toUpperCase() + iconName.slice(1).replace(/-([a-z])/g, (g) => g[1].toUpperCase())] || LucideIcons.MapPin;
       
-      if (place.is_featured) {
+      const isNotebookPlace = selectedNotebook?.place_ids.includes(place.id);
+      const notebookIndex = selectedNotebook?.place_ids.indexOf(place.id);
+      const isSelected = selectedPlace?.id === place.id;
+
+      if (place.is_featured || isNotebookPlace) {
         const container = document.createElement('div');
         container.className = 'custom-marker-wrapper';
         
         container.innerHTML = renderToStaticMarkup(
-          <div className="featured-marker flex items-center gap-2 bg-premium text-white px-3 py-1.5 rounded-md border-2 border-white shadow-lg whitespace-nowrap cursor-pointer">
+          <div className={`featured-marker flex items-center gap-2 ${isNotebookPlace ? 'bg-ink' : 'bg-premium'} text-white px-3 py-1.5 rounded-md border-2 ${isSelected ? 'border-premium ring-4 ring-premium/30 scale-110' : 'border-white'} shadow-[0_2px_8px_rgba(0,0,0,0.05)] whitespace-nowrap cursor-pointer transition-all hover:scale-105`}>
+            {isNotebookPlace && (
+              <span className="w-4 h-4 rounded-full bg-white text-ink flex items-center justify-center text-[8px] font-bold">
+                {(notebookIndex ?? 0) + 1}
+              </span>
+            )}
             <Icon size={14} strokeWidth={2} />
             <span className="text-[9px] uppercase tracking-wider font-bold">
               {place.name}
@@ -154,8 +186,8 @@ const MapView: React.FC<MapViewProps> = ({
         container.className = 'custom-marker-wrapper';
         
         container.innerHTML = renderToStaticMarkup(
-          <div className="w-8 h-8 bg-white border border-black rounded-full flex items-center justify-center shadow-md cursor-pointer hover:scale-110 transition-transform">
-             <Icon size={14} strokeWidth={2} style={{ color }} />
+          <div className={`w-8 h-8 bg-white border ${isSelected ? 'border-premium ring-4 ring-premium/30 scale-125' : 'border-black'} rounded-full flex items-center justify-center shadow-none cursor-pointer hover:scale-110 transition-transform`}>
+             <Icon size={14} strokeWidth={2} style={{ color: isSelected ? 'var(--color-premium)' : color }} />
           </div>
         );
 
@@ -176,54 +208,120 @@ const MapView: React.FC<MapViewProps> = ({
       }
     });
 
-    if (places.length > 0) {
-      const lats = places.map(p => Number(p.lat));
-      const lngs = places.map(p => Number(p.lng));
-      const minLat = Math.min(...lats);
-      const maxLat = Math.max(...lats);
-      const minLng = Math.min(...lngs);
-      const maxLng = Math.max(...lngs);
-      
-      const min = fromLonLat([minLng, minLat]);
-      const max = fromLonLat([maxLng, maxLat]);
-      
-      mapRef.current.getView().fit([min[0], min[1], max[0], max[1]], {
-        padding: [100, 100, 100, 100],
-        duration: 1000
-      });
-    }
-  }, [places, onPlaceClick, categories]);
+    // Draw notebook line
+    if (selectedNotebook && places.length > 0) {
+      const notebookCoords = selectedNotebook.place_ids
+        .map(id => places.find(p => p.id === id))
+        .filter((p): p is Place => !!p)
+        .map(p => fromLonLat([Number(p.lng), Number(p.lat)]));
 
-  // Handle Map Center (Search)
+      if (notebookCoords.length > 1) {
+        const lineFeature = new Feature({
+          geometry: new LineString(notebookCoords)
+        });
+        lineFeature.setStyle(new Style({
+          stroke: new Stroke({
+            color: '#121212',
+            width: 3,
+            lineDash: [10, 10]
+          })
+        }));
+        vectorSourceRef.current.addFeature(lineFeature);
+      }
+    }
+
+    if (places.length > 0) {
+      const categoryChanged = lastCategoryRef.current !== selectedCategoryId;
+      const subcategoryChanged = lastSubcategoryRef.current !== selectedSubcategoryId;
+      
+      // Only fit if category/subcategory changed OR if it's the first render and no mapCenter
+      const shouldFit = (categoryChanged || subcategoryChanged) || (isFirstRender.current && !mapCenter);
+
+      if (shouldFit) {
+        const lats = places.map(p => Number(p.lat));
+        const lngs = places.map(p => Number(p.lng));
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLng = Math.min(...lngs);
+        const maxLng = Math.max(...lngs);
+        
+        const min = fromLonLat([minLng, minLat]);
+        const max = fromLonLat([maxLng, maxLat]);
+        
+        mapRef.current.getView().fit([min[0], min[1], max[0], max[1]], {
+          padding: [100, 100, 100, 100],
+          duration: 1000
+        });
+      }
+    }
+
+    lastCategoryRef.current = selectedCategoryId;
+    lastSubcategoryRef.current = selectedSubcategoryId;
+    isFirstRender.current = false;
+  }, [places, onPlaceClick, categories, selectedCategoryId, selectedSubcategoryId, mapCenter, selectedPlace]);
+
+  // Handle Map Center (Search or Place Selection)
   useEffect(() => {
     if (mapRef.current && mapCenter) {
       const coords = fromLonLat([mapCenter[1], mapCenter[0]]);
+      const view = mapRef.current.getView();
+      const size = mapRef.current.getSize();
+      
+      // Handle search marker (only for address search, not place selection)
+      const isPlaceSelection = selectedPlace && 
+        Math.abs(selectedPlace.lat - mapCenter[0]) < 0.0001 && 
+        Math.abs(selectedPlace.lng - mapCenter[1]) < 0.0001;
 
-      if (searchMarkerOverlayRef.current) {
+      if (!isPlaceSelection) {
+        if (searchMarkerOverlayRef.current) {
+          mapRef.current.removeOverlay(searchMarkerOverlayRef.current);
+        }
+
+        const container = document.createElement('div');
+        container.innerHTML = renderToStaticMarkup(
+          <div className="w-4 h-4 bg-premium border-2 border-white rounded-full shadow-lg" />
+        );
+
+        const overlay = new Overlay({
+          position: coords,
+          element: container,
+          positioning: 'center-center'
+        });
+
+        mapRef.current.addOverlay(overlay);
+        searchMarkerOverlayRef.current = overlay;
+      } else if (searchMarkerOverlayRef.current) {
         mapRef.current.removeOverlay(searchMarkerOverlayRef.current);
+        searchMarkerOverlayRef.current = null;
       }
 
-      const container = document.createElement('div');
-      container.innerHTML = renderToStaticMarkup(
-        <div className="w-4 h-4 bg-premium border-2 border-white rounded-full shadow-lg" />
-      );
-
-      const overlay = new Overlay({
-        position: coords,
-        element: container,
-        positioning: 'center-center'
-      });
-
-      mapRef.current.addOverlay(overlay);
-      searchMarkerOverlayRef.current = overlay;
-
-      mapRef.current.getView().animate({
-        center: coords,
-        zoom: 16,
-        duration: 1500
-      });
+      if (isPlaceSelection && size) {
+        // If a place is selected, we want to offset the center to the left
+        // to account for the side panel (550px on desktop)
+        const isMobile = window.innerWidth < 768;
+        const paddingRight = isMobile ? 0 : 550;
+        
+        // Calculate target center with offset
+        const targetZoom = 15;
+        const resolution = view.getResolutionForZoom(targetZoom);
+        const pixelOffset = (size[0] / 2) - ((size[0] - paddingRight) / 2);
+        const mapOffset = pixelOffset * resolution;
+        
+        view.animate({
+          center: [coords[0] + mapOffset, coords[1]],
+          zoom: targetZoom,
+          duration: 1500
+        });
+      } else {
+        // Normal search centering
+        view.animate({
+          center: coords,
+          zoom: 16,
+          duration: 1500
+        });
+      }
     }
-  }, [mapCenter]);
+  }, [mapCenter, selectedPlace]);
 
   // Handle Geolocation
   useEffect(() => {
@@ -268,12 +366,56 @@ const MapView: React.FC<MapViewProps> = ({
     };
   }, []);
 
-  const subcategories = categories.filter(c => c.parent_id === selectedCategoryId);
+  const subcategories = selectedCategoryId 
+    ? categories.filter(c => c.parent_id === selectedCategoryId)
+    : [];
 
   return (
     <div className="w-full h-full relative">
       <div ref={mapElement} className="w-full h-full bg-[#F2EFE9]"></div>
       
+      {selectedNotebook && (
+        <div className={`absolute top-24 right-6 z-20 w-[calc(100%-3rem)] max-w-sm bg-white border border-border shadow-2xl rounded-2xl transition-all duration-300 ${isNotebookExpanded ? 'p-6' : 'p-3 px-4'}`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="flex-shrink-0 px-2 py-0.5 bg-ink text-white text-[8px] uppercase tracking-widest font-bold rounded">
+                Carnet
+              </div>
+              <h3 className={`font-serif text-ink font-bold leading-tight truncate ${isNotebookExpanded ? 'text-xl' : 'text-sm'}`}>
+                {selectedNotebook.title}
+              </h3>
+            </div>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setIsNotebookExpanded(!isNotebookExpanded)}
+                className="p-1.5 hover:bg-stone-50 rounded-full transition-colors"
+                title={isNotebookExpanded ? "Réduire" : "Plus d'infos"}
+              >
+                {isNotebookExpanded ? <LucideIcons.ChevronUp className="w-4 h-4 text-accent" /> : <LucideIcons.ChevronDown className="w-4 h-4 text-accent" />}
+              </button>
+              <button 
+                onClick={onCloseNotebook}
+                className="p-1.5 hover:bg-stone-50 rounded-full transition-colors"
+              >
+                <LucideIcons.X className="w-4 h-4 text-accent" />
+              </button>
+            </div>
+          </div>
+          
+          {isNotebookExpanded && (
+            <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <p className="text-sm text-accent leading-relaxed mb-6">
+                {selectedNotebook.description}
+              </p>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-premium">
+                <LucideIcons.MapPin className="w-3 h-3" />
+                {selectedNotebook.place_ids.length} étapes sélectionnées
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10 flex gap-0 bg-white shadow-2xl border border-border overflow-hidden rounded-full">
         {subcategories.length > 0 && (
           <select 
@@ -306,30 +448,48 @@ const MapView: React.FC<MapViewProps> = ({
           onChange={(e) => setRatingFilter(e.target.value)}
         >
           <option value="">Note</option>
-          <option value="7">7+</option>
-          <option value="8">8+</option>
-          <option value="9">9+</option>
+          <option value="7">7.0+</option>
+          <option value="7.5">7.5+</option>
+          <option value="8">8.0+</option>
+          <option value="8.5">8.5+</option>
+          <option value="9">9.0+</option>
+          <option value="9.5">9.5+</option>
         </select>
       </div>
 
-      <button
-        onClick={() => {
-          if (userLocationOverlayRef.current && mapRef.current) {
-            const pos = userLocationOverlayRef.current.getPosition();
-            if (pos) {
-              mapRef.current.getView().animate({
-                center: pos,
-                zoom: 15,
-                duration: 1000
-              });
-            }
-          }
-        }}
-        className="absolute bottom-24 md:bottom-4 left-4 z-10 p-4 bg-white border border-border shadow-xl hover:bg-stone-50 transition-all rounded-full"
-        title="Ma position"
-      >
-        <LucideIcons.Navigation className="w-4 h-4 text-ink" />
-      </button>
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3 w-full px-4 pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button
+            onClick={onOpenNotebookModal}
+            className="px-6 py-3 bg-ink text-white border border-border shadow-2xl hover:bg-accent transition-all rounded-full flex items-center gap-2 group whitespace-nowrap"
+            title="Carnet d'adresses"
+          >
+            <LucideIcons.Book className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+            <span className="text-[9px] font-bold uppercase tracking-widest">
+              Carnet d'adresses
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (userLocationOverlayRef.current && mapRef.current) {
+                const pos = userLocationOverlayRef.current.getPosition();
+                if (pos) {
+                  mapRef.current.getView().animate({
+                    center: pos,
+                    zoom: 15,
+                    duration: 1000
+                  });
+                }
+              }
+            }}
+            className="p-3 bg-white border border-border shadow-2xl hover:bg-stone-50 transition-all rounded-full flex items-center justify-center"
+            title="Ma position"
+          >
+            <LucideIcons.Navigation className="w-4 h-4 text-ink" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

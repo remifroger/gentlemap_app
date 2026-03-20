@@ -1,6 +1,4 @@
--- PostgreSQL Migration Script for Gentlemap
-
--- 1. Create Tables
+-- 1. Création des Tables
 CREATE TABLE IF NOT EXISTS categories (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -20,13 +18,16 @@ CREATE TABLE IF NOT EXISTS places (
     lat DOUBLE PRECISION NOT NULL,
     lng DOUBLE PRECISION NOT NULL,
     price_range INTEGER,
+    level TEXT DEFAULT 'debutant', -- debutant, confirme, pointu
     website TEXT,
     instagram TEXT,
     gentlemap_review TEXT,
     status TEXT DEFAULT 'approved',
     is_featured INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES categories(id)
+    city VARCHAR(255),
+    CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES categories(id),
+    CONSTRAINT unique_place_identity UNIQUE (name, address)
 );
 
 CREATE TABLE IF NOT EXISTS reviews (
@@ -39,7 +40,16 @@ CREATE TABLE IF NOT EXISTS reviews (
     CONSTRAINT fk_place FOREIGN KEY (place_id) REFERENCES places(id)
 );
 
--- 2. Insert Categories
+CREATE TABLE IF NOT EXISTS notebooks (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    place_ids INTEGER[] NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Insertion des Catégories
 INSERT INTO categories (id, name, parent_id, icon, color) VALUES
 ('tailleur', 'Tailleur', NULL, 'scissors', '#5A5A40'),
 ('tailleur_grande', 'Grande Mesure', 'tailleur', NULL, NULL),
@@ -60,80 +70,39 @@ INSERT INTO categories (id, name, parent_id, icon, color) VALUES
 ('hotels', 'Hôtels de charme', NULL, 'bed', '#121212')
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Insert Initial Places
-INSERT INTO places (name, description, category_id, subcategory_id, address, lat, lng, price_range, website, instagram, gentlemap_review, is_featured) VALUES
-('Cifonelli', 'L''un des plus célèbres tailleurs de la Grande Mesure parisienne.', 'tailleur', 'tailleur_grande', '31 Rue Marbeuf, 75008 Paris', 48.8694, 2.3045, 4, 'https://www.cifonelli.com', 'cifonelli_official', 'Une épaule iconique et un savoir-faire inégalé.', 0),
-('Scavini', 'Tailleur de renom, célèbre pour son style et son expertise technique.', 'tailleur', 'tailleur_demi', '50 Boulevard de la Tour-Maubourg, 75007 Paris', 48.8592, 2.3118, 3, 'https://www.scavini.fr', 'scavini_tailleur', 'L''élégance parisienne avec une touche de modernité technique.', 1),
-('Chez Ammar', 'Friperie de luxe et sélection vintage exceptionnelle.', 'costumes_occasion', NULL, '13 Rue de la Grange Batelière, 75009 Paris', 48.8732, 2.3415, 2, NULL, 'chez_ammar_vintage', 'Une caverne d''Alibaba pour les amateurs de pièces rares.', 1),
-('Le Select', 'Café historique de Montparnasse, fréquenté par les plus grands artistes.', 'cafes', NULL, '99 Bd du Montparnasse, 75006 Paris', 48.8425, 2.3289, 2, 'https://www.leselectmontparnasse.fr', 'leselectmontparnasse', 'L''ambiance du Paris littéraire est encore palpable.', 0),
-('Berluti', 'Bottier d''exception depuis 1895.', 'souliers', 'souliers_sur', '26 Rue Marbeuf, 75008 Paris', 48.8696, 2.3038, 4, 'https://www.berluti.com', 'berluti', 'Le cuir Venezia est une légende.', 0),
-('Aubercy', 'Maison de souliers familiale et indépendante.', 'souliers', 'souliers_sur', '34 Rue Vivienne, 75002 Paris', 48.8692, 2.3401, 4, 'https://www.aubercy.com', 'aubercy', 'Un style unique et une exigence rare.', 0),
-('J.M. Weston', 'L''emblème du soulier français.', 'souliers', 'souliers_pap', '114 Av. des Champs-Élysées, 75008 Paris', 48.8721, 2.3005, 3, 'https://www.jmweston.com', 'jmwestonofficial', 'Le Mocassin 180 est un indispensable.', 0),
-('Charvet', 'Le plus ancien chemisier du monde.', 'artisans', NULL, '28 Pl. Vendôme, 75001 Paris', 48.8675, 2.3294, 4, 'https://www.charvet.com', NULL, 'Le temple de la soie et du coton.', 0),
-('Camps de Luca', 'L''excellence de la coupe parisienne.', 'tailleur', 'tailleur_grande', '16 Rue de la Paix, 75002 Paris', 48.8691, 2.3305, 4, 'https://www.campsdeluca.com', 'campsdeluca', 'Une précision chirurgicale.', 0),
-('Maison Bonnet', 'Maître lunetier d''art.', 'artisans', NULL, '5 Rue des Petits Champs, 75001 Paris', 48.8665, 2.3385, 4, 'https://www.maisonbonnet.com', 'maisonbonnet', 'L''écaille de tortue travaillée à la main.', 0),
-('Librairie Galignani', 'La plus ancienne librairie anglophone du continent.', 'librairies', NULL, '224 Rue de Rivoli, 75001 Paris', 48.8651, 2.3285, 2, 'https://www.galignani.fr', 'librairiegalignani', 'Un cadre somptueux sous les arcades.', 0),
-('Shakespeare and Company', 'Librairie mythique face à Notre-Dame.', 'librairies', NULL, '37 Rue de la Bûcherie, 75005 Paris', 48.8525, 2.3471, 2, 'https://shakespeareandcompany.com', 'shakespeareandcoparis', 'Un labyrinthe de livres chargé d''histoire.', 0),
-('Café de Flore', 'Le rendez-vous des existentialistes.', 'cafes', NULL, '172 Bd Saint-Germain, 75006 Paris', 48.8542, 2.3331, 3, 'https://cafedeflore.fr', 'lecafedeflore', 'Plus qu''un café, une institution.', 0),
-('Les Deux Magots', 'Concurrent historique du Flore.', 'cafes', NULL, '6 Pl. Saint-Germain des Prés, 75006 Paris', 48.8541, 2.3335, 3, 'https://lesdeuxmagots.fr', 'lesdeuxmagots', 'Une terrasse iconique.', 0),
-('L''Hôtel', 'Le plus petit hôtel 5 étoiles de Paris.', 'hotels', NULL, '13 Rue des Beaux Arts, 75006 Paris', 48.8558, 2.3345, 4, 'https://www.l-hotel.com', 'lhotel_paris', 'Dernière demeure d''Oscar Wilde.', 0),
-('Le Grand Véfour', 'Restaurant historique du Palais Royal.', 'restaurants', NULL, '17 Rue de Beaujolais, 75001 Paris', 48.8665, 2.3395, 4, 'https://www.grand-vefour.com', 'legrandvefour', 'Un décor Directoire époustouflant.', 0),
-('Brasserie Lipp', 'Temple de la cuisine traditionnelle.', 'restaurants', NULL, '151 Bd Saint-Germain, 75006 Paris', 48.8541, 2.3328, 3, 'https://www.brasserielipp.fr', 'brasserielipp', 'Le cervelas rémoulade est un classique.', 0),
-('Antiquités Brocante du Village Saint-Paul', 'Un village d''antiquaires caché dans le Marais.', 'antiquaires', NULL, 'Rue Saint-Paul, 75004 Paris', 48.8535, 2.3615, 2, NULL, NULL, 'Un havre de paix pour chineurs.', 0),
-('Marché aux Puces de Saint-Ouen', 'Le plus grand marché d''antiquités au monde.', 'antiquaires', NULL, 'Av. de la Porte de Clignancourt, 93400 Saint-Ouen', 48.9015, 2.3425, 2, 'https://www.pucesdesaintouen.com', 'pucesdesaintouen', 'Une exploration infinie.', 0),
-('La Belle Hortense', 'Librairie-bar à vin dans le Marais.', 'librairies', NULL, '31 Rue Vieille du Temple, 75004 Paris', 48.8575, 2.3575, 2, NULL, 'labellehortense', 'Lire en buvant un bon cru.', 0),
-('Le Comptoir de l''Avenir', 'Friperie vintage sélectionnée.', 'costumes_occasion', NULL, '6 Rue de l''Avenir, 75020 Paris', 48.8755, 2.3955, 1, NULL, NULL, 'Des pépites à prix doux.', 0),
-('Maison Fabre', 'Gantier d''art depuis 1924.', 'artisans', NULL, 'Jardin du Palais Royal, 75001 Paris', 48.8655, 2.3375, 3, 'https://www.maisonfabre.com', 'maisonfabre', 'La finesse du cuir de Millau.', 0),
-('Chapellerie Motsch', 'Intégrée à Hermès, excellence du chapeau.', 'chapeliers', NULL, '42 Av. George V, 75008 Paris', 48.8705, 2.3015, 4, NULL, NULL, 'Le summum du couvre-chef.', 0),
-('Lock & Co. Hatters (Paris Agent)', 'Représentant de la célèbre maison londonienne.', 'chapeliers', NULL, 'Paris', 48.8566, 2.3522, 4, 'https://www.lockhatters.com', NULL, 'Le summum du couvre-chef britannique à Paris.', 0),
-('Le Bal des Ardents', 'Librairie à la façade magnifique.', 'librairies', NULL, '17 Rue Neuve, 69001 Lyon', 45.7655, 4.8355, 2, 'https://www.lebaldesardents.com', 'lebaldesardents', 'Une arche de livres unique.', 0),
-('Café des Fédérations', 'Bouchon lyonnais authentique.', 'restaurants', NULL, '8 Rue Major Martin, 69001 Lyon', 45.7675, 4.8325, 2, 'https://www.les-federations-lyon.fr', 'cafedesfederations', 'La tradition lyonnaise pure.', 0),
-('Cour des Loges', 'Hôtel Renaissance au coeur du Vieux Lyon.', 'hotels', NULL, '6 Rue du Boeuf, 69005 Lyon', 45.7635, 4.8275, 4, 'https://www.courdesloges.com', 'courdesloges', 'Un voyage dans le temps.', 0),
-('Antiquités de la Cité', 'Quartier des antiquaires lyonnais.', 'antiquaires', NULL, 'Rue Auguste Comte, 69002 Lyon', 45.7555, 4.8315, 3, NULL, NULL, 'Le quartier chic de la chine.', 0),
-('Atelier de Soierie', 'Impression sur soie traditionnelle.', 'artisans', NULL, '33 Rue Romarin, 69001 Lyon', 45.7685, 4.8345, 3, 'https://www.atelierdesoierie.com', NULL, 'L''héritage des Canuts.', 0),
-('Librairie Mollat', 'La plus grande librairie indépendante de France.', 'librairies', NULL, '15 Rue Vital Carles, 33000 Bordeaux', 44.8405, -0.5785, 2, 'https://www.mollat.com', 'librairie_mollat', 'Un temple de la culture.', 0),
-('Le Grand Hôtel Bordeaux', 'L''élégance classique face au Grand Théâtre.', 'hotels', NULL, '2-5 Pl. de la Comédie, 33000 Bordeaux', 44.8425, -0.5745, 4, 'https://bordeaux.intercontinental.com', 'intercontinental_bordeaux', 'Le luxe bordelais par excellence.', 0),
-('Café de l''Espérance', 'Café de village chic à Bouliac.', 'cafes', NULL, 'Bouliac', 44.8145, -0.5045, 2, NULL, NULL, 'Une vue imprenable sur la Garonne.', 0),
-('Antiquités du Passage', 'Brocante et antiquités sélectionnées.', 'antiquaires', NULL, 'Quartier des Chartrons, 33000 Bordeaux', 44.8525, -0.5725, 3, NULL, NULL, 'L''esprit des Chartrons.', 0),
-('Maison Empereur', 'La plus ancienne quincaillerie de France.', 'artisans', NULL, '4 Rue des Récolettes, 13001 Marseille', 43.2965, 5.3775, 2, 'https://www.empereur.fr', 'maisonempereur', 'Un inventaire incroyable.', 0),
-('Le Petit Nice Passedat', 'Hôtel et restaurant gastronomique face à la mer.', 'hotels', NULL, 'Anse de Maldormé, 13007 Marseille', 43.2825, 5.3515, 4, 'https://www.passedat.fr', 'lepetitnicepassedat', 'La Méditerranée dans l''assiette.', 0),
-('Librairie Maupetit', 'Institution culturelle sur la Canebière.', 'librairies', NULL, '142 La Canebière, 13001 Marseille', 43.2985, 5.3845, 2, 'https://www.maupetitforton.fr', NULL, 'Le coeur littéraire de Marseille.', 0),
-('Hôtel Negresco', 'Palais mythique de la Promenade des Anglais.', 'hotels', NULL, '37 Promenade des Anglais, 06000 Nice', 43.6945, 7.2575, 4, 'https://www.hotel-negresco-nice.com', 'hotelnegresco', 'Une collection d''art vivante.', 0),
-('Le Plongeoir', 'Restaurant sur un rocher en mer.', 'restaurants', NULL, '60 Bd Franck Pilatte, 06300 Nice', 43.6915, 7.2885, 4, 'https://www.leplongeoir.com', 'leplongeoir', 'Une expérience suspendue.', 0),
-('Café Christian', 'Pâtisserie et salon de thé raffiné.', 'cafes', NULL, '10 Rue de l''Outre, 67000 Strasbourg', 48.5835, 7.7475, 3, 'https://christian.fr', NULL, 'Le goût de l''Alsace élégante.', 0),
-('Meert', 'Pâtisserie et salon de thé historique.', 'cafes', NULL, '27 Rue Esquermoise, 59000 Lille', 50.6375, 3.0615, 3, 'https://www.meert.fr', 'meert_1761', 'Les gaufres préférées du Général de Gaulle.', 0),
-('Le Furet du Nord', 'L''une des plus grandes librairies d''Europe.', 'librairies', NULL, '15 Pl. du Général de Gaulle, 59000 Lille', 50.6365, 3.0635, 2, 'https://www.furet.com', 'furetdunord', 'Un phare culturel.', 0),
-('Le Bibent', 'Brasserie historique sur la place du Capitole.', 'restaurants', NULL, '5 Pl. du Capitole, 31000 Toulouse', 43.6045, 1.4435, 3, 'https://www.maisonconstant.com/bibent/', NULL, 'Un décor baroque classé.', 0),
-('Librairie Ombres Blanches', 'Librairie indépendante de référence.', 'librairies', NULL, '50 Rue Gambetta, 31000 Toulouse', 43.6035, 1.4415, 2, 'https://www.ombres-blanches.fr', 'ombresblanches', 'Un espace de réflexion.', 0),
-('Les Deux Garçons', 'Café mythique du Cours Mirabeau.', 'cafes', NULL, '53 Cours Mirabeau, 13100 Aix-en-Provence', 43.5265, 5.4495, 3, NULL, NULL, 'Le rendez-vous de Cézanne et Zola.', 0),
-('La Cigale', 'Brasserie Art Nouveau classée.', 'restaurants', NULL, '4 Pl. Graslin, 44000 Nantes', 47.2125, -1.5615, 3, 'https://www.lacigale.com', 'lacigale_nantes', 'Le plus beau décor de brasserie de France.', 0),
-('L''Hôtel de Bourgtheroulde', 'Hôtel de luxe dans un monument historique.', 'hotels', NULL, '15 Pl. de la Pucelle, 76000 Rouen', 49.4415, 1.0885, 4, 'https://www.hotelsparouen.com', NULL, 'La Renaissance à l''état pur.', 0),
-('Auzou', 'Chocolatier et pâtissier de renom.', 'artisans', NULL, '163 Rue du Gros Horloge, 76000 Rouen', 49.4415, 1.0915, 3, 'https://www.auzou-chocolat.fr', 'auzou_rouen', 'Les larmes de Jeanne d''Arc.', 0),
-('Le Grand Cerf', 'Restaurant gastronomique étoilé.', 'restaurants', NULL, 'Montchenot', 49.1645, 3.9945, 4, 'https://www.legrandcerf.fr', NULL, 'La Champagne dans toute sa splendeur.', 0),
-('Maison Fossier', 'Biscuiterie historique.', 'artisans', NULL, '25 Cr Jean-Baptiste Langlet, 51100 Reims', 49.2555, 4.0315, 2, 'https://www.fossier.fr', 'maisonfossier', 'Le véritable Biscuit Rose de Reims.', 0),
-('Hôtel du Palais', 'Ancienne résidence impériale.', 'hotels', NULL, '1 Av. de l''Impératrice, 64200 Biarritz', 43.4885, -1.5545, 4, 'https://www.hotel-du-palais.com', 'hoteldupalais', 'Le luxe face à l''Océan.', 0),
-('Miremont', 'Pâtisserie et salon de thé historique.', 'cafes', NULL, '1 Pl. Clemenceau, 64200 Biarritz', 43.4835, -1.5595, 3, 'https://www.miremont-biarritz.fr', 'miremont_biarritz', 'Une vue royale sur la Grande Plage.', 0),
-('Hôtel Le Normandy', 'L''élégance anglo-normande.', 'hotels', NULL, '38 Rue Jean Mermoz, 14800 Deauville', 49.3615, 0.0745, 4, 'https://www.hotelsbarriere.com', 'lenormandydeauville', 'Le charme des planches.', 0),
-('La Mirande', 'Hôtel particulier face au Palais des Papes.', 'hotels', NULL, '4 Pl. de l''Amirande, 84000 Avignon', 43.9505, 4.8075, 4, 'https://www.la-mirande.fr', 'la_mirande', 'Un raffinement hors du temps.', 0),
-('L''Hôtel Particulier', 'Hôtel de charme dans le centre historique.', 'hotels', NULL, '4 Rue de la Monnaie, 13200 Arles', 43.6795, 4.6245, 4, 'https://www.hotel-particulier.com', 'lhotelparticulierarles', 'L''esprit de la Provence élégante.', 0),
-('Actes Sud', 'Librairie et maison d''édition.', 'librairies', NULL, 'Pl. Nina Berberova, 13200 Arles', 43.6765, 4.6215, 2, 'https://www.actes-sud.fr', 'actessud', 'Un lieu de culture foisonnant.', 0),
-('Le Jardin des Sens', 'Restaurant gastronomique des frères Pourcel.', 'restaurants', NULL, 'Montpellier', 43.6105, 3.8765, 4, 'https://www.terminal-pourcel.com', NULL, 'L''innovation culinaire du Sud.', 0),
-('Le Coq-Gadby', 'Hôtel et restaurant traditionnel.', 'hotels', NULL, '156 Rue d''Antrain, 35700 Rennes', 48.1225, -1.6745, 3, 'https://www.lecoq-gadby.com', NULL, 'L''hospitalité bretonne.', 0),
-('Maison Mulot & Petitjean', 'Fabrique historique de pain d''épices.', 'artisans', NULL, '13 Pl. Bossuet, 21000 Dijon', 47.3215, 5.0375, 2, 'https://www.mulotpetitjean.fr', 'mulotpetitjean', 'Le goût authentique de Dijon.', 0),
-('Le Grand Hôtel Grenoble', 'Élégance au centre-ville.', 'hotels', NULL, '5 Rue de la République, 38000 Grenoble', 45.1915, 5.7295, 3, 'https://www.grand-hotel-grenoble.com', NULL, 'Le charme alpin.', 0),
-('Hôtel de l''Univers', 'Hôtel historique de prestige.', 'hotels', NULL, '5 Bd Heurteloup, 37000 Tours', 47.3915, 0.6915, 3, 'https://www.hotel-univers.fr', NULL, 'Le luxe en Touraine.', 0),
-('Le Quernon d''Ardoise', 'Chocolaterie La Petite Marquise.', 'artisans', NULL, '22 Rue des Lices, 49100 Angers', 47.4695, -0.5515, 2, 'https://www.quernon.fr', NULL, 'Le bleu de l''Anjou.', 0),
-('L''Hôtel Radio', 'Hôtel et restaurant gastronomique.', 'hotels', NULL, 'Chamalières', 45.7745, 3.0545, 3, 'https://www.hotel-radio.fr', NULL, 'Une vue sur les volcans.', 0),
-('Bernardaud', 'Manufacture de porcelaine.', 'artisans', NULL, '27 Av. Albert Thomas, 87000 Limoges', 45.8365, 1.2475, 4, 'https://www.bernardaud.com', 'bernardaud', 'L''excellence de la porcelaine.', 0),
-('L''Auberge du Père Bise', 'Hôtel et restaurant au bord du lac.', 'hotels', NULL, 'Talloires', 45.8415, 6.2135, 4, 'https://www.perebise.com', 'aubergeduperebise', 'Un paradis lacustre.', 0),
-('Le Hameau Albert 1er', 'Hôtel de luxe face au Mont-Blanc.', 'hotels', NULL, '38 Route du Bouchet, 74400 Chamonix', 45.9255, 6.8745, 4, 'https://www.hameaualbert.fr', 'hameaualbert1er', 'La montagne raffinée.', 0),
-('Hôtel Byblos', 'Le temple des nuits tropéziennes.', 'hotels', NULL, '20 Av. Paul Signac, 83990 Saint-Tropez', 43.2715, 6.6425, 4, 'https://www.byblos.com', 'hotelbyblossttropez', 'La légende de Saint-Tropez.', 0),
-('Sénéquier', 'Café iconique sur le port.', 'cafes', NULL, 'Quai Jean Jaurès, 83990 Saint-Tropez', 43.2725, 6.6395, 4, 'https://www.senequier.com', 'senequiersttropez', 'Le rouge emblématique.', 0),
-('Hôtel Martinez', 'L''esprit Art Déco sur la Croisette.', 'hotels', NULL, '73 Bd de la Croisette, 06400 Cannes', 43.5485, 7.0315, 4, 'https://www.hotel-martinez.com', 'hotelmartinez', 'Le glamour du Festival.', 0),
-('Airelles Château de Versailles', 'Hôtel dans l''enceinte du Château.', 'hotels', NULL, '1 Rue de l''Indépendance Américaine, 78000 Versailles', 48.8035, 2.1205, 4, 'https://airelles.com', 'airelleschateaudeversailles', 'Vivre comme un roi.', 0),
-('L''Aigle Noir', 'Hôtel historique face au château.', 'hotels', NULL, '27 Pl. Napoléon Bonaparte, 77300 Fontainebleau', 48.4035, 2.6995, 3, 'https://www.aiglenoirhotel.com', NULL, 'L''élégance impériale.', 0),
-('Hôtel Fleur de Loire', 'Hôtel et restaurant de Christophe Hay.', 'hotels', NULL, '26 Quai Villebois Mareuil, 41000 Blois', 47.5855, 1.3385, 4, 'https://fleurdeloire.com', 'fleurdeloire', 'La gastronomie de Loire.', 0),
-('Hôtel de la Cité', 'Hôtel au coeur de la cité médiévale.', 'hotels', NULL, 'Pl. de l''Église, 11000 Carcassonne', 43.2065, 2.3645, 4, 'https://www.hoteldelacite.com', 'hoteldelacite', 'Une forteresse de luxe.', 0),
-('Chocolat Cazenave', 'Chocolatier historique sous les arcades.', 'artisans', NULL, '19 Rue Port Neuf, 64100 Bayonne', 43.4915, -1.4755, 3, 'https://www.chocolats-cazenave.fr', NULL, 'Le chocolat mousseux traditionnel.', 0),
-('Brasserie L''Excelsior', 'Chef-d''oeuvre de l''Art Nouveau.', 'restaurants', NULL, '50 Rue Henri Poincaré, 54000 Nancy', 48.6915, 6.1755, 3, 'https://www.brasserie-excelsior-nancy.fr', 'brasserie_excelsior_nancy', 'L''esprit de l''École de Nancy.', 0),
-('La Mère Poulard', 'Auberge historique célèbre pour son omelette.', 'restaurants', NULL, 'Grande Rue, 50170 Le Mont-Saint-Michel', 48.6355, -1.5105, 4, 'https://lamerepoulard.com', 'lamerepoulard', 'Une tradition séculaire.', 0);
+-- 3. Insertion des Lieux (Focus Tailleurs, Souliers, Costumes d'occasion)
+INSERT INTO places (name, description, category_id, subcategory_id, address, lat, lng, price_range, level, city, status, is_featured) VALUES
+-- Costumes d'occasion
+('Le Vif', 'Boutique de vêtements vintage et d''occasion de haute qualité.', 'costumes_occasion', NULL, '101 Rue de Turenne, 75003 Paris', 48.8615, 2.3635, 2, 'confirme', 'Paris', 'approved', 1),
+('Brut Archives', 'Sélection pointue de vêtements militaires et de travail vintage.', 'costumes_occasion', NULL, '3 Rue Réaumur, 75003 Paris', 48.8655, 2.3585, 3, 'pointu', 'Paris', 'approved', 1),
+('Thanx God I''m a V.I.P.', 'Une des meilleures friperies de luxe à Paris.', 'costumes_occasion', NULL, '12 Rue de Lancry, 75010 Paris', 48.8715, 2.3615, 3, 'debutant', 'Paris', 'approved', 1),
+('Bernard Gavilan since 1994', 'Costumes par époque, plusieurs marques de luxe.', 'costumes_occasion', NULL, 'Rue Blaes 162, 1000 Bruxelles, Belgique', 50.8395, 4.3465, 3, 'confirme', 'Bruxelles', 'approved', 1),
+('Pauline Carton boutique', 'Petite boutique proposant des costumes, tout au fond.', 'costumes_occasion', NULL, 'Rue de Flandre 29, 1000 Bruxelles, Belgique', 50.8510, 4.3475, 2, 'debutant', 'Bruxelles', 'approved', 1),
+('The Manchego - Vintage Shop', 'Boutique vintage sélectionnée au coeur de Paris.', 'costumes_occasion', NULL, '22 Rue de Beaune, 75007 Paris', 48.8585, 2.3295, 3, 'confirme', 'Paris', 'approved', 1),
+('Chez Ammar', 'Des perles rares dans un bordel savamment orchestré et beaucoup d''humour.', 'costumes_occasion', NULL, '65 Rue Nollet, 75017 Paris', 48.8875, 2.3215, 2, 'pointu', 'Paris', 'approved', 1),
+('Chez Ugo', 'Sélection vintage de caractère à Lille.', 'costumes_occasion', NULL, '3 Place Aux Oignons 59800 Lille', 50.6405, 3.0625, 2, 'confirme', 'Lille', 'approved', 1),
+
+-- Tailleurs (Grande Mesure, Sur Mesure, PAP)
+('Cifonelli', 'Tailleur de grande mesure légendaire, célèbre pour son épaule cigarette.', 'tailleur', 'tailleur_grande', '31 Rue Marbeuf, 75008 Paris', 48.8695, 2.3035, 4, 'pointu', 'Paris', 'approved', 1),
+('Camps de Luca', 'L''excellence de la grande mesure parisienne.', 'tailleur', 'tailleur_grande', '16 Rue de la Paix, 75002 Paris', 48.8690, 2.3310, 4, 'pointu', 'Paris', 'approved', 1),
+('Smalto', 'L''élégance italienne au service de la mesure parisienne.', 'tailleur', 'tailleur_sur', '44 Rue François 1er, 75008 Paris', 48.8685, 2.3045, 4, 'confirme', 'Paris', 'approved', 1),
+('Husbands', 'Prêt-à-porter de luxe inspiré des grandes heures du style classique.', 'tailleur', 'tailleur_pap', '57 Rue de Richelieu, 75002 Paris', 48.8675, 2.3390, 3, 'debutant', 'Paris', 'approved', 1),
+('Scavini', 'Tailleur parisien réputé pour son style classique et ses pantalons à la coupe impeccable.', 'tailleur', 'tailleur_sur', '19 Boulevard de Courcelles, 75008 Paris', 48.8785, 2.3115, 3, 'confirme', 'Paris', 'approved', 1),
+('Pini Parma', 'Le style italien accessible en prêt-à-porter.', 'tailleur', 'tailleur_pap', '63 Rue de la Boétie, 75008 Paris', 48.8735, 2.3125, 2, 'debutant', 'Paris', 'approved', 0),
+
+-- Souliers (Sur Mesure, PAP)
+('Berluti', 'L''art de la patine et du soulier d''exception.', 'souliers', 'souliers_sur', '31 Rue Marbeuf, 75008 Paris', 48.8695, 2.3035, 4, 'pointu', 'Paris', 'approved', 1),
+('John Lobb', 'Le bottier de référence, élégance intemporelle.', 'souliers', 'souliers_sur', '21 Rue Boissy d''Anglas, 75008 Paris', 48.8690, 2.3220, 4, 'pointu', 'Paris', 'approved', 1),
+('J.M. Weston', 'L''icône du soulier français, célèbre pour son mocassin 180.', 'souliers', 'souliers_pap', '114 Av. des Champs-Élysées, 75008 Paris', 48.8720, 2.3010, 3, 'debutant', 'Paris', 'approved', 1),
+('Aubercy', 'Maison familiale proposant des souliers d''une finesse rare.', 'souliers', 'souliers_sur', '34 Rue Vivienne, 75002 Paris', 48.8700, 2.3400, 4, 'confirme', 'Paris', 'approved', 1)
+ON CONFLICT (name, address) DO NOTHING;
+
+-- Mise à jour automatique des villes basée sur l'adresse
+UPDATE places SET city = 'Paris' WHERE (address LIKE '%Paris%' OR address LIKE '%750%') AND (city IS NULL OR city = '');
+UPDATE places SET city = 'Bruxelles' WHERE (address LIKE '%Bruxelles%' OR address LIKE '%1000%') AND (city IS NULL OR city = '');
+-- 4. Insertion des Carnets (Notebooks)
+INSERT INTO notebooks (id, title, description, image_url, place_ids) VALUES
+('debutant-costume-paris', 'Débutant dans le costume à Paris', 'Les meilleures adresses pour commencer sa garde-robe classique à Paris sans se ruiner.', 'https://images.unsplash.com/photo-1594932224828-b4b057b7d6ee?q=80&w=800&auto=format&fit=crop', ARRAY[83, 94, 96, 101]),
+('antiquaires-art-nouveau', 'Antiquaires spécialisés Art Nouveau', 'Une sélection de boutiques pour les amoureux du style 1900.', 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=800&auto=format&fit=crop', ARRAY[81, 82, 86]),
+('bruxelles-vintage', 'Le meilleur du vintage à Bruxelles', 'Parcours dans les rues de Bruxelles pour dénicher des pièces d''exception.', 'https://images.unsplash.com/photo-1531058020387-3be344556be6?q=80&w=800&auto=format&fit=crop', ARRAY[84, 85])
+ON CONFLICT (id) DO NOTHING;

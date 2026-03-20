@@ -72,6 +72,11 @@ const PlaceDetails: React.FC<PlaceDetailsProps> = ({ place, onClose }) => {
               <Star className={`w-3 h-3 ${place.is_featured ? 'text-premium' : 'text-ink'}`} />
               <span>{place.avg_rating ? `${Number(place.avg_rating).toFixed(1)}/10` : 'Aucun avis'}</span>
             </div>
+            {place.level && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-stone-100 rounded-full">
+                <span className="text-[8px] text-ink">{place.level === 'debutant' ? 'Débutant' : place.level === 'confirme' ? 'Confirmé' : 'Pointu'}</span>
+              </div>
+            )}
           </div>
           
           <div className="mt-8 md:mt-10 flex items-start justify-between gap-4 border-t border-border pt-6 md:pt-8">

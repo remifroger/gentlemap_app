@@ -94,11 +94,11 @@ const App: React.FC = () => {
   const fetchPlaces = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (selectedCategoryId) params.append('category_id', selectedCategoryId);
-      if (selectedSubcategoryId) params.append('subcategory_id', selectedSubcategoryId);
-      if (priceFilter) params.append('price', priceFilter);
-      if (ratingFilter) params.append('rating', ratingFilter.toString());
-      if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
+      if (selectedCategoryId) params.append('category', selectedCategoryId);
+      if (selectedSubcategoryId) params.append('subcategory', selectedSubcategoryId);
+      if (priceFilter) params.append('maxPrice', priceFilter);
+      if (ratingFilter) params.append('minRating', ratingFilter.toString());
+      if (debouncedSearchQuery) params.append('q', debouncedSearchQuery);
 
       // If a notebook is active, we only want to fetch places that belong to it
       if (selectedNotebook) {
@@ -150,6 +150,9 @@ const App: React.FC = () => {
       const notebook: Notebook = await res.json();
       
       setSelectedNotebook(notebook);
+      // Reset category filters to "Tout voir"
+      setSelectedCategoryId(null);
+      setSelectedSubcategoryId(null);
       setShowBlog(false);
       window.location.hash = '';
     } catch (error) {
@@ -264,6 +267,9 @@ const App: React.FC = () => {
             onClose={() => setIsNotebookModalOpen(false)} 
             onSelectNotebook={(notebook) => {
               setSelectedNotebook(notebook);
+              // Reset category filters to "Tout voir"
+              setSelectedCategoryId(null);
+              setSelectedSubcategoryId(null);
               setIsNotebookModalOpen(false);
             }}
           />

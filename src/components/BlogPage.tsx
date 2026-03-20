@@ -13,11 +13,30 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onViewNotebook }) => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const handleHash = React.useCallback((currentPosts: BlogPost[]) => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#blog/')) {
+      const slug = decodeURIComponent(hash.replace('#blog/', '')).split('?')[0].split('/')[0];
+      if (currentPosts.length > 0) {
+        const post = currentPosts.find(p => p.slug === slug);
+        if (post) {
+          setSelectedPost(post);
+        } else {
+          setSelectedPost(null);
+        }
+      }
+    } else if (hash === '#blog') {
+      setSelectedPost(null);
+    }
+  }, []);
+
   const fetchPosts = async () => {
     try {
+      setIsLoading(true);
       const res = await fetch('/api/blog');
       const data = await res.json();
       setPosts(data);
+      handleHash(data);
     } catch (error) {
       console.error("Error fetching blog posts:", error);
     } finally {
@@ -30,25 +49,10 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onViewNotebook }) => {
   }, []);
 
   React.useEffect(() => {
-    const handleHash = () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#blog/')) {
-        const slug = hash.replace('#blog/', '');
-        const post = posts.find(p => p.slug === slug);
-        if (post) {
-          setSelectedPost(post);
-        }
-      } else if (hash === '#blog') {
-        setSelectedPost(null);
-      }
-    };
-
-    if (posts.length > 0) {
-      handleHash();
-    }
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
-  }, [posts]);
+    const onHashChange = () => handleHash(posts);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [posts, handleHash]);
 
   const handlePostSelect = (post: BlogPost) => {
     setSelectedPost(post);

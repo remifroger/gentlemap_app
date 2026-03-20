@@ -146,7 +146,7 @@ const PlaceDetails: React.FC<PlaceDetailsProps> = ({ place, onClose }) => {
                <h3 className="text-micro text-accent">L'Héritage</h3>
                <div className="h-[0.5px] flex-1 bg-border"></div>
             </div>
-            <p className="text-ink/80 leading-relaxed font-light text-xl italic font-serif">
+            <p className="text-ink/80 leading-relaxed font-light text-xl font-serif">
                {place.description || 'Une adresse confidentielle à découvrir.'}
             </p>
           </section>

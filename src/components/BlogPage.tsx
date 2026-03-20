@@ -33,7 +33,7 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onViewNotebook }) => {
     const handleHash = () => {
       const hash = window.location.hash;
       if (hash.startsWith('#blog/')) {
-        const slug = hash.split('/')[1];
+        const slug = hash.replace('#blog/', '');
         const post = posts.find(p => p.slug === slug);
         if (post) {
           setSelectedPost(post);
@@ -186,7 +186,7 @@ const BlogPage: React.FC<BlogPageProps> = ({ onBack, onViewNotebook }) => {
               )}
 
               <div 
-                className="prose prose-lg max-w-none text-accent leading-relaxed space-y-6 font-serif text-xl italic"
+                className="prose prose-lg max-w-none text-accent leading-relaxed space-y-6 font-serif text-xl"
                 dangerouslySetInnerHTML={{ __html: selectedPost.content }}
               />
 

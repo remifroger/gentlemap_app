@@ -302,9 +302,12 @@ const MapView: React.FC<MapViewProps> = ({
         const paddingRight = isMobile ? 0 : 550;
         
         // Calculate target center with offset
-        const targetZoom = 15;
+        const targetZoom = 17; // Increased zoom for better detail
         const resolution = view.getResolutionForZoom(targetZoom);
-        const pixelOffset = (size[0] / 2) - ((size[0] - paddingRight) / 2);
+        
+        // On mobile, we might want a vertical offset if the panel is at the bottom
+        // But currently PlaceDetails is a side panel on desktop and likely full screen or bottom on mobile
+        const pixelOffset = isMobile ? 0 : (paddingRight / 2);
         const mapOffset = pixelOffset * resolution;
         
         view.animate({
@@ -375,41 +378,53 @@ const MapView: React.FC<MapViewProps> = ({
       <div ref={mapElement} className="w-full h-full bg-[#F2EFE9]"></div>
       
       {selectedNotebook && (
-        <div className={`absolute top-24 right-6 z-20 w-[calc(100%-3rem)] max-w-sm bg-white border border-border shadow-2xl rounded-2xl transition-all duration-300 ${isNotebookExpanded ? 'p-6' : 'p-3 px-4'}`}>
+        <div className={`absolute top-6 right-6 z-20 w-[calc(100%-3rem)] max-w-sm bg-white/95 backdrop-blur-md border border-border shadow-2xl rounded-2xl transition-all duration-500 ease-in-out ${isNotebookExpanded ? 'p-6' : 'p-3 px-4'}`}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="flex-shrink-0 px-2 py-0.5 bg-ink text-white text-[8px] uppercase tracking-widest font-bold rounded">
-                Carnet
+              <div className="flex-shrink-0 w-8 h-8 bg-ink text-white flex items-center justify-center rounded-lg shadow-lg">
+                <LucideIcons.Book className="w-4 h-4" />
               </div>
-              <h3 className={`font-serif text-ink font-bold leading-tight truncate ${isNotebookExpanded ? 'text-xl' : 'text-sm'}`}>
-                {selectedNotebook.title}
-              </h3>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-[7px] uppercase tracking-[0.2em] font-bold text-premium leading-none mb-1">
+                  Carnet d'adresses
+                </span>
+                <h3 className={`font-serif text-ink font-bold leading-tight truncate ${isNotebookExpanded ? 'text-xl' : 'text-sm'}`}>
+                  {selectedNotebook.title}
+                </h3>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <button 
                 onClick={() => setIsNotebookExpanded(!isNotebookExpanded)}
-                className="p-1.5 hover:bg-stone-50 rounded-full transition-colors"
-                title={isNotebookExpanded ? "Réduire" : "Plus d'infos"}
+                className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                title={isNotebookExpanded ? "Réduire" : "Développer"}
               >
-                {isNotebookExpanded ? <LucideIcons.ChevronUp className="w-4 h-4 text-accent" /> : <LucideIcons.ChevronDown className="w-4 h-4 text-accent" />}
+                {isNotebookExpanded ? <LucideIcons.ChevronUp className="w-4 h-4 text-ink" /> : <LucideIcons.ChevronDown className="w-4 h-4 text-ink" />}
               </button>
               <button 
                 onClick={onCloseNotebook}
-                className="p-1.5 hover:bg-stone-50 rounded-full transition-colors"
+                className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                title="Fermer le carnet"
               >
-                <LucideIcons.X className="w-4 h-4 text-accent" />
+                <LucideIcons.X className="w-4 h-4 text-ink" />
               </button>
             </div>
           </div>
           
           {isNotebookExpanded && (
-            <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <p className="text-sm text-accent leading-relaxed mb-6">
-                {selectedNotebook.description}
+            <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-500">
+              <div className="h-px bg-border/50 mb-4" />
+              <p className="text-sm text-accent leading-relaxed mb-6 font-serif">
+                "{selectedNotebook.description}"
               </p>
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-premium">
-                <LucideIcons.MapPin className="w-3 h-3" />
-                {selectedNotebook.place_ids.length} étapes sélectionnées
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-premium">
+                  <LucideIcons.MapPin className="w-3 h-3" />
+                  {selectedNotebook.place_ids.length} adresses à découvrir
+                </div>
+                <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center">
+                   <LucideIcons.ArrowRight className="w-3 h-3 text-ink" />
+                </div>
               </div>
             </div>
           )}

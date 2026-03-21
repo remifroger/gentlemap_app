@@ -116,8 +116,11 @@ const Header: React.FC<HeaderProps> = ({
             }`}
             value={inputValue}
             onChange={(e) => {
-              setInputValue(e.target.value);
-              setSearchQuery(e.target.value);
+              const val = e.target.value;
+              setInputValue(val);
+              if (val === '') {
+                setSearchQuery('');
+              }
               setShowSuggestions(true);
             }}
             onFocus={() => setShowSuggestions(true)}
@@ -138,7 +141,6 @@ const Header: React.FC<HeaderProps> = ({
                       onClick={() => {
                         onPlaceSelect?.(place);
                         setInputValue(place.name);
-                        setSearchQuery(''); 
                         setShowSuggestions(false);
                       }}
                     >
@@ -210,8 +212,11 @@ const Header: React.FC<HeaderProps> = ({
                   className="w-full py-2 bg-transparent text-sm font-light italic focus:outline-none placeholder:text-accent/40"
                   value={inputValue}
                   onChange={(e) => {
-                    setInputValue(e.target.value);
-                    setSearchQuery(e.target.value);
+                    const val = e.target.value;
+                    setInputValue(val);
+                    if (val === '') {
+                      setSearchQuery('');
+                    }
                   }}
                 />
                 {inputValue && (
@@ -243,7 +248,6 @@ const Header: React.FC<HeaderProps> = ({
                           onClick={() => {
                             onPlaceSelect?.(place);
                             setInputValue(place.name);
-                            setSearchQuery(''); 
                             setIsMobileSearchOpen(false);
                           }}
                         >

@@ -60,6 +60,8 @@ const MapView: React.FC<MapViewProps> = ({
   const searchMarkerOverlayRef = useRef<Overlay | null>(null);
   const lastCategoryRef = useRef<string | null>(null);
   const lastSubcategoryRef = useRef<string | null>(null);
+  const lastNotebookRef = useRef<string | null>(null);
+  const hasFittedNotebookRef = useRef<string | null>(null);
   const isFirstRender = useRef(true);
 
   const [isNotebookExpanded, setIsNotebookExpanded] = useState(false);
@@ -231,8 +233,23 @@ const MapView: React.FC<MapViewProps> = ({
     }
 
     if (places.length > 0) {
-      // Only fit if it's the first render and no mapCenter is provided
-      const shouldFit = isFirstRender.current && !mapCenter;
+      const currentNotebookId = selectedNotebook?.id || null;
+      const notebookChanged = lastNotebookRef.current !== currentNotebookId;
+      
+      // Only fit if it's the first render and no mapCenter is provided OR if notebook changed
+      let shouldFit = (isFirstRender.current && !mapCenter);
+      
+      if (currentNotebookId && hasFittedNotebookRef.current !== currentNotebookId) {
+        // Check if the current places list actually contains the notebook places
+        const notebookPlaceIds = selectedNotebook?.place_ids || [];
+        const isNotebookLoaded = notebookPlaceIds.length > 0 && 
+                                 notebookPlaceIds.every(id => places.some(p => p.id === id));
+        
+        if (isNotebookLoaded) {
+          shouldFit = true;
+          hasFittedNotebookRef.current = currentNotebookId;
+        }
+      }
 
       if (shouldFit) {
         const lats = places.map(p => Number(p.lat));
@@ -254,8 +271,12 @@ const MapView: React.FC<MapViewProps> = ({
 
     lastCategoryRef.current = selectedCategoryId;
     lastSubcategoryRef.current = selectedSubcategoryId;
+    lastNotebookRef.current = selectedNotebook?.id || null;
+    if (!selectedNotebook) {
+      hasFittedNotebookRef.current = null;
+    }
     isFirstRender.current = false;
-  }, [places, onPlaceClick, categories, selectedCategoryId, selectedSubcategoryId, mapCenter, selectedPlace]);
+  }, [places, onPlaceClick, categories, selectedCategoryId, selectedSubcategoryId, mapCenter, selectedPlace, selectedNotebook]);
 
   // Handle Map Center (Search or Place Selection)
   useEffect(() => {

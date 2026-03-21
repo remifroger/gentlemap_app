@@ -122,6 +122,7 @@ const App: React.FC = () => {
   const handlePlaceSelect = (place: Place) => {
     setMapCenter([place.lat, place.lng]);
     setSelectedPlace(place);
+    setSearchQuery(place.name); // Filter to this place
     // Update URL hash without triggering scroll or reload
     window.location.hash = `#place/${place.id}`;
   };
@@ -150,9 +151,11 @@ const App: React.FC = () => {
       const notebook: Notebook = await res.json();
       
       setSelectedNotebook(notebook);
+      setMapCenter(null); // Clear map center to allow fitting extent
       // Reset category filters to "Tout voir"
       setSelectedCategoryId(null);
       setSelectedSubcategoryId(null);
+      setSearchQuery(''); // Clear search
       setShowBlog(false);
       window.location.hash = '';
     } catch (error) {
@@ -161,22 +164,10 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (selectedNotebook) {
-      // When a notebook is selected, we center the map on its first place if available
-      // fetchPlaces() will be called automatically because selectedNotebook is a dependency of fetchPlaces
-    } else {
+    if (!selectedNotebook) {
       setItineraryPlaces([]);
     }
   }, [selectedNotebook]);
-
-  useEffect(() => {
-    if (selectedNotebook && places.length > 0) {
-      const notebookPlacesList = places.filter(p => selectedNotebook.place_ids.includes(p.id));
-      if (notebookPlacesList.length > 0 && !mapCenter) {
-        setMapCenter([notebookPlacesList[0].lat, notebookPlacesList[0].lng]);
-      }
-    }
-  }, [selectedNotebook, places, mapCenter]);
 
   useEffect(() => {
     fetchCategories();
@@ -212,6 +203,8 @@ const App: React.FC = () => {
             onSelectCategory={(id) => {
               setSelectedCategoryId(id);
               setSelectedSubcategoryId(null);
+              setSearchQuery('');
+              setSelectedPlace(null);
               setIsSidebarOpen(false);
             }} 
             isOpen={isSidebarOpen}
@@ -267,9 +260,11 @@ const App: React.FC = () => {
             onClose={() => setIsNotebookModalOpen(false)} 
             onSelectNotebook={(notebook) => {
               setSelectedNotebook(notebook);
+              setMapCenter(null); // Clear map center to allow fitting extent
               // Reset category filters to "Tout voir"
               setSelectedCategoryId(null);
               setSelectedSubcategoryId(null);
+              setSearchQuery(''); // Clear search
               setIsNotebookModalOpen(false);
             }}
           />

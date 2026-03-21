@@ -231,11 +231,8 @@ const MapView: React.FC<MapViewProps> = ({
     }
 
     if (places.length > 0) {
-      const categoryChanged = lastCategoryRef.current !== selectedCategoryId;
-      const subcategoryChanged = lastSubcategoryRef.current !== selectedSubcategoryId;
-      
-      // Only fit if category/subcategory changed OR if it's the first render and no mapCenter
-      const shouldFit = (categoryChanged || subcategoryChanged) || (isFirstRender.current && !mapCenter);
+      // Only fit if it's the first render and no mapCenter is provided
+      const shouldFit = isFirstRender.current && !mapCenter;
 
       if (shouldFit) {
         const lats = places.map(p => Number(p.lat));
@@ -431,10 +428,10 @@ const MapView: React.FC<MapViewProps> = ({
         </div>
       )}
 
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10 flex gap-0 bg-white shadow-2xl border border-border overflow-hidden rounded-full">
+      <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2 z-20 flex gap-0 bg-white shadow-2xl border border-border overflow-hidden rounded-full max-w-[95vw] md:max-w-none">
         {subcategories.length > 0 && (
           <select 
-            className="px-6 py-3 text-[9px] font-bold uppercase tracking-[0.2em] bg-transparent border-r border-border outline-none cursor-pointer hover:bg-stone-50 transition-colors appearance-none"
+            className="px-3 md:px-6 py-2 md:py-3 text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] bg-transparent border-r border-border outline-none cursor-pointer hover:bg-stone-50 transition-colors appearance-none"
             value={selectedSubcategoryId || ''}
             onChange={(e) => setSelectedSubcategoryId(e.target.value || null)}
           >
@@ -446,7 +443,7 @@ const MapView: React.FC<MapViewProps> = ({
         )}
         
         <select 
-          className="px-6 py-3 text-[9px] font-bold uppercase tracking-[0.2em] bg-transparent border-r border-border outline-none cursor-pointer hover:bg-stone-50 transition-colors appearance-none"
+          className="px-3 md:px-6 py-2 md:py-3 text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] bg-transparent border-r border-border outline-none cursor-pointer hover:bg-stone-50 transition-colors appearance-none"
           value={priceFilter}
           onChange={(e) => setPriceFilter(e.target.value)}
         >
@@ -458,7 +455,7 @@ const MapView: React.FC<MapViewProps> = ({
         </select>
 
         <select 
-          className="px-6 py-3 text-[9px] font-bold uppercase tracking-[0.2em] bg-transparent outline-none cursor-pointer hover:bg-stone-50 transition-colors appearance-none"
+          className="px-3 md:px-6 py-2 md:py-3 text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] bg-transparent outline-none cursor-pointer hover:bg-stone-50 transition-colors appearance-none"
           value={ratingFilter}
           onChange={(e) => setRatingFilter(e.target.value)}
         >
@@ -472,15 +469,15 @@ const MapView: React.FC<MapViewProps> = ({
         </select>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3 w-full px-4 pointer-events-none">
+      <div className="absolute bottom-10 md:bottom-8 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 w-full px-4 pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto">
           <button
             onClick={onOpenNotebookModal}
-            className="px-6 py-3 bg-ink text-white border border-border shadow-2xl hover:bg-accent transition-all rounded-full flex items-center gap-2 group whitespace-nowrap"
+            className="px-5 md:px-6 py-3 bg-ink text-white border border-border shadow-2xl hover:bg-accent transition-all rounded-full flex items-center gap-2 group whitespace-nowrap"
             title="Carnet d'adresses"
           >
             <LucideIcons.Book className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-            <span className="text-[9px] font-bold uppercase tracking-widest">
+            <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest">
               Carnet d'adresses
             </span>
           </button>

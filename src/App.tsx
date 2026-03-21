@@ -187,7 +187,7 @@ const App: React.FC = () => {
   }, [fetchPlaces]);
 
   return (
-    <div className="flex flex-col h-screen bg-bg">
+    <div className="flex flex-col h-[100dvh] bg-bg">
       <Header 
         searchQuery={searchQuery} 
         setSearchQuery={setSearchQuery} 

@@ -122,7 +122,6 @@ const App: React.FC = () => {
   const handlePlaceSelect = (place: Place) => {
     setMapCenter([place.lat, place.lng]);
     setSelectedPlace(place);
-    setSearchQuery(place.name); // Filter to this place
     // Update URL hash without triggering scroll or reload
     window.location.hash = `#place/${place.id}`;
   };
